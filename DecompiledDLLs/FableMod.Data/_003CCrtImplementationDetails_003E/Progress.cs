@@ -1,0 +1,28 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: <CrtImplementationDetails>.Progress
+// Assembly: FableMod.Data, Version=1.0.4918.427, Culture=neutral, PublicKeyToken=null
+// MVID: 4E10122A-6FC9-49D4-9087-7FA415462296
+// Assembly location: C:\Users\Cornelio\Desktop\Chocolate Box\FableMod.Data.dll
+
+using Microsoft.VisualC;
+using System;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+
+#nullable disable
+namespace \u003CCrtImplementationDetails\u003E;
+
+[DebugInfoInPDB]
+[NativeCppClass]
+[MiscellaneousBits(64 /*0x40*/)]
+[StructLayout(LayoutKind.Sequential, Size = 1)]
+internal struct Progress
+{
+  [MiscellaneousBits(64 /*0x40*/)]
+  [NativeCppClass]
+  [CLSCompliant(false)]
+  [DebugInfoInPDB]
+  public enum State
+  {
+  }
+}
