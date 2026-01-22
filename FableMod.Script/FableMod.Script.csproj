@@ -1,0 +1,67 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!--Project was exported from assembly: C:\Users\Cornelio\Desktop\Chocolate Box\FableMod.Script.dll-->
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{29873808-94C2-4AC8-A5CC-5A7D7F26972A}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AssemblyName>FableMod.Script</AssemblyName>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <TargetFrameworkProfile />
+    <ApplicationVersion>1.0.4918.426</ApplicationVersion>
+    <FileAlignment>512</FileAlignment>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Microsoft.VisualC" />
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="_003CModule_003E.cs" />
+    <Compile Include="_GUID.cs" />
+    <Compile Include="IUnknown.cs" />
+    <Compile Include="gcroot_003CSystem_003A_003AString ^_003E.cs" />
+    <Compile Include="__s_GUID.cs" />
+    <Compile Include="ICLRRuntimeHost.cs" />
+    <Compile Include="__enative_startup_state.cs" />
+    <Compile Include="ICorRuntimeHost.cs" />
+    <Compile Include="_EXCEPTION_POINTERS.cs" />
+    <Compile Include="_003CCppImplementationDetails_003E\$ArrayType$$$BY00Q6MPEBXXZ.cs" />
+    <Compile Include="_003CCppImplementationDetails_003E\$ArrayType$$$BY0A@P6AXXZ.cs" />
+    <Compile Include="_003CCppImplementationDetails_003E\$ArrayType$$$BY0A@P6AHXZ.cs" />
+    <Compile Include="_003CCrtImplementationDetails_003E\ModuleLoadException.cs" />
+    <Compile Include="_003CCrtImplementationDetails_003E\ModuleLoadExceptionHandlerException.cs" />
+    <Compile Include="_003CCrtImplementationDetails_003E\ModuleUninitializer.cs" />
+    <Compile Include="_003CCrtImplementationDetails_003E\LanguageSupport.cs" />
+    <Compile Include="_003CCrtImplementationDetails_003E\Progress.cs" />
+    <Compile Include="_003CCrtImplementationDetails_003E\TriBool.cs" />
+    <Compile Include="_003CCrtImplementationDetails_003E\ThisModule.cs" />
+    <Compile Include="FableMod\Script\Parser.cs" />
+    <Compile Include="AssemblyInfo.cs" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

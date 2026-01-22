@@ -1,0 +1,55 @@
+﻿// Decompiled with JetBrains decompiler
+// Type: FableMod.Gfx.Integration.Buttons
+// Assembly: FableMod.Gfx.Integration, Version=1.0.4918.443, Culture=neutral, PublicKeyToken=null
+// MVID: 11191760-BFE8-4917-AB7A-ED7AB3A5A394
+// Assembly location: C:\Users\Cornelio\Desktop\Chocolate Box\FableMod.Gfx.Integration.dll
+
+using System;
+
+#nullable disable
+namespace FableMod.Gfx.Integration;
+
+[Flags]
+public enum Buttons : long
+{
+  Mouse = 16106127360, // 0x00000003C0000000
+  ModifierKeys = 14, // 0x000000000000000E
+  NormalKeys = 268419056, // 0x000000000FFFBFF0
+  NumPadKeys = 268173312, // 0x000000000FFC0000
+  DRButton = 12884901888, // 0x0000000300000000
+  DMButton = 10737418240, // 0x0000000280000000
+  DLButton = 9663676416, // 0x0000000240000000
+  RButton = 4294967296, // 0x0000000100000000
+  MButton = 2147483648, // 0x0000000080000000
+  LButton = 1073741824, // 0x0000000040000000
+  NumPad9 = 134217728, // 0x0000000008000000
+  NumPad8 = 67108864, // 0x0000000004000000
+  NumPad7 = 33554432, // 0x0000000002000000
+  NumPad6 = 16777216, // 0x0000000001000000
+  NumPad5 = 8388608, // 0x0000000000800000
+  NumPad4 = 4194304, // 0x0000000000400000
+  NumPad3 = 2097152, // 0x0000000000200000
+  NumPad2 = 1048576, // 0x0000000000100000
+  NumPad1 = 524288, // 0x0000000000080000
+  NumPad0 = 262144, // 0x0000000000040000
+  Enter = 131072, // 0x0000000000020000
+  Backspace = 65536, // 0x0000000000010000
+  Space = 32768, // 0x0000000000008000
+  Delete = 16384, // 0x0000000000004000
+  D = 2048, // 0x0000000000000800
+  S = 1024, // 0x0000000000000400
+  W = 512, // 0x0000000000000200
+  A = 256, // 0x0000000000000100
+  Alt = 4,
+  Ctrl = 2,
+  None = 0,
+  Shift = 8,
+  Keys = 268419070, // 0x000000000FFFBFFE
+  Tab = 4096, // 0x0000000000001000
+  Down = 128, // 0x0000000000000080
+  Up = 64, // 0x0000000000000040
+  Double = 8589934592, // 0x0000000200000000
+  Escape = 8192, // 0x0000000000002000
+  Right = 32, // 0x0000000000000020
+  Left = 16, // 0x0000000000000010
+}
