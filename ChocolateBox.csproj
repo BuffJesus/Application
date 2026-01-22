@@ -1,0 +1,155 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!--Project was exported from assembly: C:\Users\Cornelio\Desktop\Chocolate Box\ChocolateBox.exe-->
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{6C52C609-0607-4415-AF61-E4567D9789EF}</ProjectGuid>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>ChocolateBox</AssemblyName>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <TargetFrameworkProfile>Client</TargetFrameworkProfile>
+    <ApplicationVersion>1.3.8.150</ApplicationVersion>
+    <FileAlignment>512</FileAlignment>
+    <RootNamespace>ChocolateBox</RootNamespace>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="FableMod.BBB">
+      <HintPath>lib\FableMod.BBB.dll</HintPath>
+    </Reference>
+    <Reference Include="FableMod.BIG">
+      <HintPath>lib\FableMod.BIG.dll</HintPath>
+    </Reference>
+    <Reference Include="FableMod.BIN">
+      <HintPath>lib\FableMod.BIN.dll</HintPath>
+    </Reference>
+    <Reference Include="FableMod.CLRCore">
+      <HintPath>lib\FableMod.CLRCore.dll</HintPath>
+    </Reference>
+    <Reference Include="FableMod.Content.Forms">
+      <HintPath>lib\FableMod.Content.Forms.dll</HintPath>
+    </Reference>
+    <Reference Include="FableMod.ContentManagement">
+      <HintPath>lib\FableMod.ContentManagement.dll</HintPath>
+    </Reference>
+    <Reference Include="FableMod.Forms">
+      <HintPath>lib\FableMod.Forms.dll</HintPath>
+    </Reference>
+    <Reference Include="FableMod.Gfx.Integration">
+      <HintPath>lib\FableMod.Gfx.Integration.dll</HintPath>
+    </Reference>
+    <Reference Include="FableMod.LEV">
+      <HintPath>lib\FableMod.LEV.dll</HintPath>
+    </Reference>
+    <Reference Include="FableMod.STB">
+      <HintPath>lib\FableMod.STB.dll</HintPath>
+    </Reference>
+    <Reference Include="FableMod.Script">
+      <HintPath>lib\FableMod.Script.dll</HintPath>
+    </Reference>
+    <Reference Include="FableMod.TNG">
+      <HintPath>lib\FableMod.TNG.dll</HintPath>
+    </Reference>
+    <Reference Include="FableMod.WLD">
+      <HintPath>lib\FableMod.WLD.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="FileProcessorMode.cs" />
+    <Compile Include="Processor.cs" />
+    <Compile Include="FileProcessor.cs" />
+    <Compile Include="FileState.cs" />
+    <Compile Include="FileController.cs" />
+    <Compile Include="FormFileController.cs" />
+    <Compile Include="FormEditor.cs" />
+    <Compile Include="WLDFileController.cs" />
+    <Compile Include="UIDDatabaseProcessor.cs" />
+    <Compile Include="FormRegionSelect.cs" />
+    <Compile Include="Progress.cs" />
+    <Compile Include="FormTreeFileController.cs" />
+    <Compile Include="FormBBB.cs" />
+    <Compile Include="FormNewGameBINEntry.cs" />
+    <Compile Include="FormSelectEntry.cs" />
+    <Compile Include="FormSelectBIGEntry.cs" />
+    <Compile Include="FormModPackage.cs" />
+    <Compile Include="FormNamesBIN.cs" />
+    <Compile Include="FileInterface.cs" />
+    <Compile Include="FormMain.cs" />
+    <Compile Include="FormSelectBINEntry.cs" />
+    <Compile Include="BINFileController.cs" />
+    <Compile Include="UIDCheckProcessor.cs" />
+    <Compile Include="BBBExtractor.cs" />
+    <Compile Include="FormBIG.cs" />
+    <Compile Include="BBBFileController.cs" />
+    <Compile Include="FormSelectNamesEntry.cs" />
+    <Compile Include="Settings.cs" />
+    <Compile Include="FormFind.cs" />
+    <Compile Include="Program.cs" />
+    <Compile Include="FormProcess.cs" />
+    <Compile Include="FormObjectBuilder.cs" />
+    <Compile Include="FileDatabase.cs" />
+    <Compile Include="GetModifiedProcessor.cs" />
+    <Compile Include="FormNewBIGEntry.cs" />
+    <Compile Include="NamesBINController.cs" />
+    <Compile Include="FormTextureBIG.cs" />
+    <Compile Include="FormDayTip.cs" />
+    <Compile Include="RegionLoader.cs" />
+    <Compile Include="FormAbout.cs" />
+    <Compile Include="FormBIN.cs" />
+    <Compile Include="MapSaveProcessor.cs" />
+    <Compile Include="BINDumber.cs" />
+    <Compile Include="BIGFileController.cs" />
+    <Compile Include="ModEnvironmentManager.cs" />
+    <Compile Include="Properties\Settings.cs" />
+    <Compile Include="Properties\Resources.cs" />
+    <Compile Include="EasyCSharp\Core\IniFile.cs" />
+    <Compile Include="AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="FormAbout.resx" />
+    <EmbeddedResource Include="FormBBB.resx" />
+    <EmbeddedResource Include="FormBIG.resx" />
+    <EmbeddedResource Include="FormBIN.resx" />
+    <EmbeddedResource Include="FormDayTip.resx" />
+    <EmbeddedResource Include="FormEditor.resx" />
+    <EmbeddedResource Include="FormFileController.resx" />
+    <EmbeddedResource Include="FormFind.resx" />
+    <EmbeddedResource Include="FormMain.resx" />
+    <EmbeddedResource Include="FormModPackage.resx" />
+    <EmbeddedResource Include="FormNamesBIN.resx" />
+    <EmbeddedResource Include="FormNewBIGEntry.resx" />
+    <EmbeddedResource Include="FormNewGameBINEntry.resx" />
+    <EmbeddedResource Include="FormObjectBuilder.resx" />
+    <EmbeddedResource Include="FormProcess.resx" />
+    <EmbeddedResource Include="FormRegionSelect.resx" />
+    <EmbeddedResource Include="FormSelectBINEntry.resx" />
+    <EmbeddedResource Include="FormSelectEntry.resx" />
+    <EmbeddedResource Include="FormTextureBIG.resx" />
+    <EmbeddedResource Include="FormTreeFileController.resx" />
+    <EmbeddedResource Include="Properties\Resources.resx" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>
