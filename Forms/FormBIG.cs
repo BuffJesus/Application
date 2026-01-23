@@ -7,9 +7,12 @@
 using FableMod.BIG;
 using FableMod.Content.Forms;
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
+using System.IO;
 using System.Windows.Forms;
+using FableMod.Gfx.Integration;
 
 #nullable disable
 namespace ChocolateBox;
@@ -18,6 +21,7 @@ public class FormBIG : FormTreeFileController
 {
   private BIGFile myBIG;
   private IContainer components;
+  private MenuStrip menuStripMain;
   private ToolStripMenuItem fileToolStripMenuItem;
   private ToolStripMenuItem saveAsToolStripMenuItem;
   private ToolStripSeparator toolStripMenuItem1;
@@ -27,9 +31,13 @@ public class FormBIG : FormTreeFileController
   private ToolStripMenuItem findByNameToolStripMenuItem;
   private ToolStripSeparator toolStripMenuItem2;
   private ToolStripMenuItem findModifiedToolStripMenuItem;
-  protected internal MenuStrip menuStripMain;
+  protected internal MenuStrip menuStripMain_protected;
   protected ToolStripMenuItem editToolStripMenuItem;
   protected ToolStripMenuItem addEntryToolStripMenuItem;
+
+  private ToolStripMenuItem bulkExportToolStripMenuItem;
+  private ToolStripMenuItem exportMeshToolStripMenuItem;
+  private ContextMenuStrip contextMenuStripTree;
 
   public FormBIG()
   {
@@ -40,6 +48,119 @@ public class FormBIG : FormTreeFileController
     }
     catch (Exception ex)
     {
+    }
+
+    this.btnExportSelected.Visible = true;
+
+    this.contextMenuStripTree = new ContextMenuStrip();
+    this.bulkExportToolStripMenuItem = new ToolStripMenuItem();
+    this.exportMeshToolStripMenuItem = new ToolStripMenuItem();
+    
+    this.bulkExportToolStripMenuItem.Text = "Bulk Export Selected...";
+    this.bulkExportToolStripMenuItem.Click += new EventHandler(this.bulkExportToolStripMenuItem_Click);
+    
+    this.exportMeshToolStripMenuItem.Text = "Export Mesh as...";
+    this.exportMeshToolStripMenuItem.Click += new EventHandler((s, e) => this.ExportMesh());
+    
+    this.contextMenuStripTree.Items.Add(this.exportMeshToolStripMenuItem);
+    this.contextMenuStripTree.Items.Add(this.bulkExportToolStripMenuItem);
+    this.treeView.ContextMenuStrip = this.contextMenuStripTree;
+  }
+
+  protected override void OnExportSelected()
+  {
+      this.ExportSelected();
+  }
+
+  private void ExportMesh()
+  {
+      if (!(this.treeView.SelectedNode.Tag is AssetEntry entry))
+          return;
+
+      // Meshes are typically type 1, 2, 4, or 5 in the Graphics bank
+      if (((BIGBank)entry.Bank).Name != Settings.GetString("Banks", "Graphics") ||
+          (entry.Type != 1U && entry.Type != 2U && entry.Type != 4U && entry.Type != 5U))
+      {
+          MessageBox.Show("This asset is not a mesh and cannot be exported as a model.", "Not a Mesh", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+          return;
+      }
+
+      SaveFileDialog saveFileDialog = new SaveFileDialog();
+      saveFileDialog.FileName = entry.DevSymbolName;
+      saveFileDialog.Filter = "Legacy .X (*.x)|*.x|OBJ (*.obj)|*.obj|glTF (*.gltf)|*.gltf";
+      
+      if (saveFileDialog.ShowDialog() != DialogResult.OK)
+          return;
+
+      ExportFormat format = ExportFormat.X;
+      if (saveFileDialog.FilterIndex == 2) format = ExportFormat.OBJ;
+      else if (saveFileDialog.FilterIndex == 3) format = ExportFormat.GLTF;
+
+      string directory = Path.GetDirectoryName(saveFileDialog.FileName);
+      string fileName = Path.GetFileNameWithoutExtension(saveFileDialog.FileName);
+
+      try
+      {
+          GfxModel model = new GfxModel(entry);
+          if (model.LODCount > 0)
+          {
+              ModelExporter.Export(model.get_LODs(0), directory, fileName, format);
+              MessageBox.Show("Mesh exported successfully.", "Export Successful", MessageBoxButtons.OK, MessageBoxIcon.Information);
+          }
+      }
+      catch (Exception ex)
+      {
+          MessageBox.Show("Error exporting mesh: " + ex.Message, "Export Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+      }
+  }
+
+  private void bulkExportToolStripMenuItem_Click(object sender, EventArgs e)
+  {
+      this.ExportSelected();
+  }
+
+  private void ExportSelected()
+  {
+    List<AssetEntry> selectedEntries = new List<AssetEntry>();
+    this.GetCheckedEntries(this.treeView.Nodes, selectedEntries);
+
+    if (selectedEntries.Count == 0)
+    {
+        MessageBox.Show("No assets selected for export. Please check the boxes next to the assets you want to export.", "No Assets Selected", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        return;
+    }
+
+    FolderBrowserDialog folderBrowserDialog = new FolderBrowserDialog();
+    folderBrowserDialog.Description = "Select the parent folder for the bulk export";
+    if (folderBrowserDialog.ShowDialog() != DialogResult.OK)
+        return;
+
+    string parentFolder = folderBrowserDialog.SelectedPath;
+
+    FormExportOptions exportOptions = new FormExportOptions();
+    if (exportOptions.ShowDialog() != DialogResult.OK)
+        return;
+
+    ExportFormat format = exportOptions.SelectedFormat;
+    
+    FormProcess formProcess = new FormProcess(new BulkExportProcessor(selectedEntries, parentFolder, format));
+    formProcess.ShowDialog();
+    formProcess.Dispose();
+  }
+
+
+  private void GetCheckedEntries(TreeNodeCollection nodes, List<AssetEntry> selectedEntries)
+  {
+    foreach (TreeNode node in nodes)
+    {
+      if (node.Checked && node.Tag is AssetEntry entry)
+      {
+        selectedEntries.Add(entry);
+      }
+      if (node.Nodes.Count > 0)
+      {
+        GetCheckedEntries(node.Nodes, selectedEntries);
+      }
     }
   }
 
@@ -68,25 +189,56 @@ public class FormBIG : FormTreeFileController
 
   public virtual void Build(BIGFile big, Progress progress)
   {
+    if (this.treeView.InvokeRequired)
+    {
+        this.treeView.Invoke(new Action(() => this.Build(big, progress)));
+        return;
+    }
+
     this.myBIG = big;
     int steps = 0;
-    for (int index = 0; index < this.myBIG.BankCount; ++index)
+    int bankCount = this.myBIG.BankCount;
+    for (int index = 0; index < bankCount; ++index)
       steps += this.myBIG.get_Banks(index).EntryCount;
+    
     progress.Begin(steps);
-    for (int index1 = 0; index1 < this.myBIG.BankCount; ++index1)
+    this.treeView.BeginUpdate();
+    this.ClearNodeCache();
+    try
     {
-      TreeNode treeNode = new TreeNode();
-      treeNode.Text = this.myBIG.get_Banks(index1).Name;
-      treeNode.Tag = (object) this.myBIG.get_Banks(index1);
-      treeNode.ImageIndex = 2;
-      treeNode.SelectedImageIndex = 2;
-      this.AddNode((TreeNode) null, treeNode);
-      for (int index2 = 0; index2 < big.get_Banks(index1).EntryCount; ++index2)
-      {
-        AssetEntry o = this.myBIG.get_Banks(index1).get_Entries(index2);
-        this.AddToTree(treeNode, o.DevSymbolName, (object) o);
-        progress.Update();
-      }
+        int progressStep = steps / 100;
+        if (progressStep == 0) progressStep = 1;
+        int currentStep = 0;
+
+        for (int index1 = 0; index1 < bankCount; ++index1)
+        {
+          BIGBank bank = this.myBIG.get_Banks(index1);
+          progress.StepInfo = $"(Bank {index1 + 1} of {bankCount}: {bank.Name})";
+          TreeNode treeNode = new TreeNode();
+          treeNode.Text = bank.Name;
+          treeNode.Tag = (object) bank;
+          treeNode.ImageIndex = 2;
+          treeNode.SelectedImageIndex = 2;
+          // DON'T AddNode here, add it AFTER populating it
+          
+          int entryCount = bank.EntryCount;
+          for (int index2 = 0; index2 < entryCount; ++index2)
+          {
+            AssetEntry o = bank.get_Entries(index2);
+            this.AddToTree(treeNode, o.DevSymbolName, (object) o);
+            currentStep++;
+            if (currentStep % progressStep == 0)
+                progress.Update();
+          }
+
+          // Add the fully populated bank node in one go
+          this.AddNode(null, treeNode);
+        }
+    }
+    finally
+    {
+        progress.StepInfo = "";
+        this.treeView.EndUpdate();
     }
     progress.End();
     if (this.myBIG != FileDatabase.Instance.Textures)
@@ -169,9 +321,6 @@ public class FormBIG : FormTreeFileController
     this.toolStripMenuItem1 = new ToolStripSeparator();
     this.closeToolStripMenuItem = new ToolStripMenuItem();
     this.editToolStripMenuItem = new ToolStripMenuItem();
-    this.findByIDToolStripMenuItem = new ToolStripMenuItem();
-    this.findByNameToolStripMenuItem = new ToolStripMenuItem();
-    this.findModifiedToolStripMenuItem = new ToolStripMenuItem();
     this.toolStripMenuItem2 = new ToolStripSeparator();
     this.addEntryToolStripMenuItem = new ToolStripMenuItem();
     this.saveFileDialog = new SaveFileDialog();
@@ -211,11 +360,8 @@ public class FormBIG : FormTreeFileController
     this.closeToolStripMenuItem.Size = new Size(152, 22);
     this.closeToolStripMenuItem.Text = "&Close";
     this.closeToolStripMenuItem.Click += new EventHandler(this.closeToolStripMenuItem_Click);
-    this.editToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[5]
+    this.editToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[2]
     {
-      (ToolStripItem) this.findByIDToolStripMenuItem,
-      (ToolStripItem) this.findByNameToolStripMenuItem,
-      (ToolStripItem) this.findModifiedToolStripMenuItem,
       (ToolStripItem) this.toolStripMenuItem2,
       (ToolStripItem) this.addEntryToolStripMenuItem
     });
@@ -223,22 +369,6 @@ public class FormBIG : FormTreeFileController
     this.editToolStripMenuItem.Size = new Size(37, 20);
     this.editToolStripMenuItem.Text = "&Edit";
     this.editToolStripMenuItem.Paint += new PaintEventHandler(this.editToolStripMenuItem_Paint);
-    this.findByIDToolStripMenuItem.Name = "findByIDToolStripMenuItem";
-    this.findByIDToolStripMenuItem.ShortcutKeys = Keys.F | Keys.Shift | Keys.Control;
-    this.findByIDToolStripMenuItem.Size = new Size(191, 22);
-    this.findByIDToolStripMenuItem.Text = "Find By &ID";
-    this.findByIDToolStripMenuItem.Click += new EventHandler(this.findByIDToolStripMenuItem_Click);
-    this.findByNameToolStripMenuItem.Name = "findByNameToolStripMenuItem";
-    this.findByNameToolStripMenuItem.ShortcutKeys = Keys.F | Keys.Control;
-    this.findByNameToolStripMenuItem.Size = new Size(191, 22);
-    this.findByNameToolStripMenuItem.Text = "Find By &Name";
-    this.findByNameToolStripMenuItem.Click += new EventHandler(this.findByNameToolStripMenuItem_Click);
-    this.findModifiedToolStripMenuItem.Name = "findModifiedToolStripMenuItem";
-    this.findModifiedToolStripMenuItem.Size = new Size(191, 22);
-    this.findModifiedToolStripMenuItem.Text = "Find &Modified";
-    this.findModifiedToolStripMenuItem.Click += new EventHandler(this.findModifiedToolStripMenuItem_Click);
-    this.toolStripMenuItem2.Name = "toolStripMenuItem2";
-    this.toolStripMenuItem2.Size = new Size(188, 6);
     this.addEntryToolStripMenuItem.Name = "addEntryToolStripMenuItem";
     this.addEntryToolStripMenuItem.Size = new Size(191, 22);
     this.addEntryToolStripMenuItem.Text = "&Add Entry";
@@ -249,7 +379,6 @@ public class FormBIG : FormTreeFileController
     this.AutoScaleMode = AutoScaleMode.Font;
     this.ClientSize = new Size(514, 394);
     this.Controls.Add((Control) this.menuStripMain);
-    this.KeyPreview = true;
     this.MainMenuStrip = this.menuStripMain;
     this.Name = nameof (FormBIG);
     this.Text = "BIG";

@@ -32,24 +32,24 @@ internal class Resources
   {
     get
     {
-      if (object.ReferenceEquals((object) ChocolateBox.Properties.Resources.resourceMan, (object) null))
-        ChocolateBox.Properties.Resources.resourceMan = new ResourceManager("ChocolateBox.Properties.Resources", typeof (ChocolateBox.Properties.Resources).Assembly);
-      return ChocolateBox.Properties.Resources.resourceMan;
+      if (object.ReferenceEquals((object) resourceMan, (object) null))
+        resourceMan = new ResourceManager("ChocolateBox.Properties.Resources", typeof (Resources).Assembly);
+      return resourceMan;
     }
   }
 
   [EditorBrowsable(EditorBrowsableState.Advanced)]
   internal static CultureInfo Culture
   {
-    get => ChocolateBox.Properties.Resources.resourceCulture;
-    set => ChocolateBox.Properties.Resources.resourceCulture = value;
+    get => resourceCulture;
+    set => resourceCulture = value;
   }
 
   internal static Icon ChocolateBox
   {
     get
     {
-      return (Icon) ChocolateBox.Properties.Resources.ResourceManager.GetObject(nameof (ChocolateBox), ChocolateBox.Properties.Resources.resourceCulture);
+      return null; // (Icon) ResourceManager.GetObject(nameof (ChocolateBox), resourceCulture);
     }
   }
 }

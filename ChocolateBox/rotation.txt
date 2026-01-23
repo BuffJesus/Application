@@ -1,3 +1,0 @@
-<title>Rotation</title>
-
-To rotate objects in Region Editor, select an object or objects and use the right mouse button on the selection arrows to rotate the object.

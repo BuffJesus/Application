@@ -30,6 +30,8 @@ public class GfxView : UserControl
   private bool m_bInitialized;
   private bool m_bActive;
   private bool m_bErrors;
+  private int m_lastY;
+  private bool m_isMiddleMouseDown;
 
   public GfxView()
   {
@@ -489,6 +491,13 @@ label_24:
       return;
     if (!this.Focused)
       this.Focus();
+    
+    if (button == "CameraOrbit" || button == "CameraMove")
+    {
+        this.m_isMiddleMouseDown = true;
+        this.m_lastY = e.Y;
+    }
+
     this.UpdateMouse(e.X, e.Y);
     switch (button)
     {
@@ -510,6 +519,8 @@ label_24:
       return;
     if (button.StartsWith("Camera"))
     {
+      if (button == "CameraOrbit" || button == "CameraMove")
+        this.m_isMiddleMouseDown = false;
       \u003CModule\u003E.FableMod\u002EGfx\u002ECameraController\u002EOnUp(this.m_pCameraController);
     }
     else
@@ -535,7 +546,20 @@ label_24:
   {
     if (!this.IsReady())
       return;
-    this.UpdateMouse(e.X, e.Y);
+    
+    int y = e.Y;
+    if (this.m_isMiddleMouseDown)
+    {
+        int dy = y - this.m_lastY;
+        if (dy != 0)
+        {
+            // Apply a speed multiplier for middle-mouse vertical movement (rotation/move)
+            y = this.m_lastY + (int)(dy * 2.5);
+        }
+    }
+    this.m_lastY = y;
+
+    this.UpdateMouse(e.X, y);
     \u003CModule\u003E.FableMod\u002EGfx\u002ECameraController\u002EOnMouseMove(this.m_pCameraController, this.m_pvMouse);
     base.OnMouseMove(e);
   }

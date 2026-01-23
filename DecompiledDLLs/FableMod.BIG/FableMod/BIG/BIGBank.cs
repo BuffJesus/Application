@@ -23,25 +23,33 @@ public class BIGBank : AssetBank
 
   internal unsafe BIGBank(AssetArchive archive, uint startpos, ProgressInterface progress)
   {
+    this.Load(archive, startpos, progress, true);
+  }
+
+  public unsafe BIGBank()
+  {
+  }
+
+  internal unsafe void Load(AssetArchive archive, uint startpos, ProgressInterface progress, bool loadEntries)
+  {
     // ISSUE: fault handler
     try
     {
       FileStream archiveFile = archive.ArchiveFile;
       this.m_Archive = archive;
       this.m_Entries = new Collection<AssetEntry>();
-      this.m_Archive.ArchiveFile.Position = (long) startpos;
+      archiveFile.Position = (long) startpos;
       this.m_SourceStartOffset = startpos;
       this.m_Name = "";
-      byte c = (byte) archiveFile.ReadByte();
-      if (c != (byte) 0)
+      List<byte> nameBytes = new List<byte>();
+      int nextByte = archiveFile.ReadByte();
+      while (nextByte != 0 && nextByte != 255 && nextByte != -1) 
       {
-        do
-        {
-          this.m_Name += new string((char) c, 1);
-          c = (byte) archiveFile.ReadByte();
-        }
-        while (c != (byte) 0);
+          nameBytes.Add((byte)nextByte);
+          nextByte = archiveFile.ReadByte();
       }
+      this.m_Name = System.Text.Encoding.ASCII.GetString(nameBytes.ToArray());
+
       BIGBankHeader* bigBankHeaderPtr = (BIGBankHeader*) \u003CModule\u003E.@new(20UL);
       BIGBankHeader* pBuffer;
       // ISSUE: fault handler
@@ -61,32 +69,63 @@ public class BIGBank : AssetBank
         \u003CModule\u003E.delete((void*) bigBankHeaderPtr);
       }
       this.m_SourceHeader = pBuffer;
-      int num1 = (int) FileControl.Read(archiveFile, (void*) pBuffer, 20U);
+      
+      byte[] bankHeaderBytes = new byte[20];
+      archiveFile.Read(bankHeaderBytes, 0, 20);
+      Marshal.Copy(bankHeaderBytes, 0, (IntPtr)this.m_SourceHeader, 20);
+
       int position = (int) archiveFile.Position;
       this.m_SourceLength = (uint) position - startpos;
-      archiveFile.Position = (long) (uint) *(int*) ((IntPtr) this.m_SourceHeader + 8L);
-      uint num2;
-      int num3 = (int) FileControl.Read(archiveFile, (void*) &num2, 4U);
-      archiveFile.Position += (long) (num2 * 8U);
-      progress?.Begin(*(int*) ((IntPtr) this.m_SourceHeader + 4L));
-      uint num4 = 0;
-      if (0U < (uint) *(int*) ((IntPtr) this.m_SourceHeader + 4L))
+
+      if (loadEntries)
       {
-        do
-        {
-          this.m_Entries.Add(new AssetEntry(this.m_Archive, (AssetBank) this, (uint) (int) archiveFile.Position));
-          progress?.Update();
-          ++num4;
-        }
-        while (num4 < (uint) *(int*) ((IntPtr) this.m_SourceHeader + 4L));
+          this.LoadEntries(archiveFile, progress);
       }
-      progress?.End();
+      
       archiveFile.Position = (long) position;
     }
     __fault
     {
       this.Dispose(true);
     }
+  }
+
+  internal unsafe void LoadEntries(FileStream archiveFile, ProgressInterface progress)
+  {
+      long originalPosition = archiveFile.Position;
+      archiveFile.Position = (long) (uint) *(int*) ((IntPtr) this.m_SourceHeader + 8L);
+      
+      byte[] num2Bytes = new byte[4];
+      archiveFile.Read(num2Bytes, 0, 4);
+      uint num2 = BitConverter.ToUInt32(num2Bytes, 0);
+
+      archiveFile.Position += (long) (num2 * 8U);
+      int entryCount = *(int*) ((IntPtr) this.m_SourceHeader + 4L);
+      progress?.Begin(entryCount);
+      uint num4 = 0;
+      if (0U < (uint) entryCount)
+      {
+        int progressStep = entryCount / 100;
+        if (progressStep == 0) progressStep = 1;
+
+        do
+        {
+          AssetEntry entry = new AssetEntry(this.m_Archive, (AssetBank) this, (uint) (int) archiveFile.Position);
+          this.m_Entries.Add(entry);
+          if (num4 % (uint)progressStep == 0)
+          {
+            if (progress is Progress p)
+                p.StepInfo = $"(Entry {num4 + 1} of {entryCount}: {entry.DevSymbolName})";
+            progress?.Update();
+          }
+          ++num4;
+        }
+        while (num4 < (uint) entryCount);
+      }
+      if (progress is Progress pFinal)
+          pFinal.StepInfo = "";
+      progress?.End();
+      archiveFile.Position = originalPosition;
   }
 
   public unsafe BIGBank(string name, uint id, uint blocksize, AssetArchive archive)

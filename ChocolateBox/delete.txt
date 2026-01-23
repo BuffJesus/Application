@@ -1,3 +1,0 @@
-<title>Delete Things</title>
-
-When you have selected an object or objects in the Region Editor, you can press the 'Delete' key to delete the object(s). 

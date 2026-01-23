@@ -10,6 +10,8 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 #nullable disable
 namespace FableMod.BIG;
@@ -89,21 +91,52 @@ public class BIGFile : AssetArchive
     int num1 = (int) FileControl.Read(File, (void*) this.m_SourceHeader, 16U /*0x10*/);
     this.m_ArchiveFile.Position = (long) (uint) *(int*) ((IntPtr) this.m_SourceHeader + 8L);
     uint steps = 0;
-    int num2 = (int) FileControl.Read(this.m_ArchiveFile, (void*) &steps, 4U);
+    
+    byte[] stepsBytes = new byte[4];
+    this.m_ArchiveFile.Read(stepsBytes, 0, 4);
+    steps = BitConverter.ToUInt32(stepsBytes, 0);
+
     progress?.Begin((int) steps);
     uint num3 = 0;
     if (0U < steps)
     {
-      do
+      int progressStep = (int)steps / 100;
+      if (progressStep == 0) progressStep = 1;
+
+      // Pass 1: Sequentially read bank headers (fast)
+      List<BIGBank> bankList = new List<BIGBank>();
+      for (uint i = 0; i < steps; i++)
       {
-        Collection<AssetBank> banks = this.m_Banks;
-        BIGFile archive = this;
-        BIGBank bigBank = new BIGBank((AssetArchive) archive, (uint) (int) archive.ArchiveFile.Position, progress);
-        banks.Add((AssetBank) bigBank);
-        ++num3;
+          BIGBank bigBank = new BIGBank();
+          bigBank.Load(this, (uint)this.m_ArchiveFile.Position, null, false);
+          bankList.Add(bigBank);
+          this.m_Banks.Add(bigBank);
       }
-      while (num3 < steps);
+
+      // Pass 2: Multi-threaded load of entries (slow I/O)
+      int banksDone = 0;
+      object syncLock = new object();
+      Parallel.ForEach(bankList, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, bank => 
+      {
+          using (FileStream bankFile = File.Open(this.m_OriginalFileName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+          {
+              bank.LoadEntries(bankFile, null);
+          }
+          
+          int done = System.Threading.Interlocked.Increment(ref banksDone);
+          if (done % progressStep == 0)
+          {
+              lock (syncLock)
+              {
+                  if (progress is Progress p)
+                      p.StepInfo = $"(Loaded bank {done} of {steps}: {bank.Name})";
+                  progress?.Update();
+              }
+          }
+      });
     }
+    if (progress is Progress pFinal)
+        pFinal.StepInfo = "";
     progress?.End();
   }
 

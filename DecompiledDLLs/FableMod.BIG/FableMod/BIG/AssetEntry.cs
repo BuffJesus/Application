@@ -171,13 +171,19 @@ public class AssetEntry : AssetArchiveItem, IDisposable
   {
     if ((IntPtr) this.m_Data == IntPtr.Zero)
     {
-      AssetEntryHeader* newHeader1 = this.m_NewHeader;
-      this.m_Data = (sbyte*) \u003CModule\u003E.@new((IntPtr) newHeader1 == IntPtr.Zero ? (ulong) (uint) *(int*) ((IntPtr) this.m_SourceHeader + 12L) : (ulong) (uint) *(int*) ((IntPtr) newHeader1 + 12L));
-      AssetEntryHeader* newHeader2 = this.m_NewHeader;
-      this.m_Archive.ArchiveFile.Position = (IntPtr) newHeader2 == IntPtr.Zero ? (long) (uint) *(int*) ((IntPtr) this.m_SourceHeader + 16L /*0x10*/) : (long) (uint) *(int*) ((IntPtr) newHeader2 + 16L /*0x10*/);
-      AssetEntryHeader* newHeader3 = this.m_NewHeader;
-      int num = (int) FileControl.Read(this.m_Archive.ArchiveFile, (void*) this.m_Data, (IntPtr) newHeader3 == IntPtr.Zero ? (uint) *(int*) ((IntPtr) this.m_SourceHeader + 12L) : (uint) *(int*) ((IntPtr) newHeader3 + 12L));
-      this.m_Modified = false;
+      lock (this.m_Archive)
+      {
+        if ((IntPtr) this.m_Data == IntPtr.Zero)
+        {
+          AssetEntryHeader* newHeader1 = this.m_NewHeader;
+          this.m_Data = (sbyte*) \u003CModule\u003E.@new((IntPtr) newHeader1 == IntPtr.Zero ? (ulong) (uint) *(int*) ((IntPtr) this.m_SourceHeader + 12L) : (ulong) (uint) *(int*) ((IntPtr) newHeader1 + 12L));
+          AssetEntryHeader* newHeader2 = this.m_NewHeader;
+          this.m_Archive.ArchiveFile.Position = (IntPtr) newHeader2 == IntPtr.Zero ? (long) (uint) *(int*) ((IntPtr) this.m_SourceHeader + 16L /*0x10*/) : (long) (uint) *(int*) ((IntPtr) newHeader2 + 16L /*0x10*/);
+          AssetEntryHeader* newHeader3 = this.m_NewHeader;
+          int num = (int) FileControl.Read(this.m_Archive.ArchiveFile, (void*) this.m_Data, (IntPtr) newHeader3 == IntPtr.Zero ? (uint) *(int*) ((IntPtr) this.m_SourceHeader + 12L) : (uint) *(int*) ((IntPtr) newHeader3 + 12L));
+          this.m_Modified = false;
+        }
+      }
     }
     return this.m_Data;
   }
@@ -828,35 +834,66 @@ public class AssetEntry : AssetArchiveItem, IDisposable
     }
     this.m_SourceHeader = assetEntryHeaderPtr2;
     FileStream archiveFile = this.m_Archive.ArchiveFile;
-    int num1 = (int) FileControl.Read(archiveFile, (void*) this.m_SourceHeader, 28U);
-    *(long*) ((IntPtr) this.m_SourceHeader + 28L) = (long) \u003CModule\u003E.@new((ulong) (uint) (*(int*) ((IntPtr) this.m_SourceHeader + 24L) + 1));
-    AssetEntryHeader* sourceHeader1 = this.m_SourceHeader;
-    int num2 = (int) FileControl.Read(archiveFile, (void*) *(long*) ((IntPtr) sourceHeader1 + 28L), (uint) *(int*) ((IntPtr) sourceHeader1 + 24L));
-    AssetEntryHeader* sourceHeader2 = this.m_SourceHeader;
-    *(sbyte*) ((long) (uint) *(int*) ((IntPtr) sourceHeader2 + 24L) + *(long*) ((IntPtr) sourceHeader2 + 28L)) = (sbyte) 0;
-    int num3 = (int) FileControl.Read(archiveFile, (void*) ((IntPtr) this.m_SourceHeader + 36L), 8U);
-    *(long*) ((IntPtr) this.m_SourceHeader + 44L) = (long) \u003CModule\u003E.@new((ulong) (uint) *(int*) ((IntPtr) this.m_SourceHeader + 40L) * 12UL);
-    uint num4 = 0;
-    if (0U < (uint) *(int*) ((IntPtr) this.m_SourceHeader + 40L))
+    
+    // Read the first 28 bytes of the header
+    byte[] headerStart = new byte[28];
+    archiveFile.Read(headerStart, 0, 28);
+    Marshal.Copy(headerStart, 0, (IntPtr)this.m_SourceHeader, 28);
+
+    // Get the length for the first string
+    int stringLen = *(int*)((IntPtr)this.m_SourceHeader + 24L);
+    *(long*) ((IntPtr) this.m_SourceHeader + 28L) = (long) \u003CModule\u003E.@new((ulong) (uint) (stringLen + 1));
+    
+    // Read the string
+    byte[] stringBytes = new byte[stringLen];
+    archiveFile.Read(stringBytes, 0, stringLen);
+    Marshal.Copy(stringBytes, 0, (IntPtr)(*(long*)((IntPtr)this.m_SourceHeader + 28L)), stringLen);
+    *(sbyte*) ((long) stringLen + *(long*) ((IntPtr) this.m_SourceHeader + 28L)) = (sbyte) 0;
+
+    // Read the next 8 bytes (including count for DevSourceEntries)
+    byte[] next8 = new byte[8];
+    archiveFile.Read(next8, 0, 8);
+    Marshal.Copy(next8, 0, (IntPtr)((IntPtr)this.m_SourceHeader + 36L), 8);
+
+    int devCount = *(int*)((IntPtr)this.m_SourceHeader + 40L);
+    *(long*) ((IntPtr) this.m_SourceHeader + 44L) = (long) \u003CModule\u003E.@new((ulong) (uint) devCount * 12UL);
+    
+    if (0 < devCount)
     {
-      long num5 = 0;
-      do
+      for (int i = 0; i < devCount; i++)
       {
-        DevSourceEntry* pBuffer1 = (DevSourceEntry*) (*(long*) ((IntPtr) this.m_SourceHeader + 44L) + num5);
-        int num6 = (int) FileControl.Read(archiveFile, (void*) pBuffer1, 4U);
-        void* pBuffer2 = \u003CModule\u003E.@new((ulong) (uint) (*(int*) pBuffer1 + 1));
+        DevSourceEntry* pBuffer1 = (DevSourceEntry*) (*(long*) ((IntPtr) this.m_SourceHeader + 44L) + (long)i * 12L);
+        
+        // Read 4 bytes for length
+        byte[] lenBytes = new byte[4];
+        archiveFile.Read(lenBytes, 0, 4);
+        Marshal.Copy(lenBytes, 0, (IntPtr)pBuffer1, 4);
+        
+        int subLen = *(int*)pBuffer1;
+        void* pBuffer2 = \u003CModule\u003E.@new((ulong) (uint) (subLen + 1));
         *(long*) ((IntPtr) pBuffer1 + 4L) = (long) pBuffer2;
-        int num7 = (int) FileControl.Read(archiveFile, pBuffer2, (uint) *(int*) pBuffer1);
-        *(sbyte*) ((long) (uint) *(int*) pBuffer1 + *(long*) ((IntPtr) pBuffer1 + 4L)) = (sbyte) 0;
-        ++num4;
-        num5 += 12L;
+        
+        // Read the string
+        byte[] subBytes = new byte[subLen];
+        archiveFile.Read(subBytes, 0, subLen);
+        Marshal.Copy(subBytes, 0, (IntPtr)pBuffer2, subLen);
+        *(sbyte*) ((long) subLen + *(long*) ((IntPtr) pBuffer1 + 4L)) = (sbyte) 0;
       }
-      while (num4 < (uint) *(int*) ((IntPtr) this.m_SourceHeader + 40L));
     }
-    int num8 = (int) FileControl.Read(archiveFile, (void*) ((IntPtr) this.m_SourceHeader + 52L), 4U);
-    *(long*) ((IntPtr) this.m_SourceHeader + 56L) = (long) \u003CModule\u003E.@new((ulong) (uint) *(int*) ((IntPtr) this.m_SourceHeader + 52L));
-    AssetEntryHeader* sourceHeader3 = this.m_SourceHeader;
-    int num9 = (int) FileControl.Read(archiveFile, (void*) *(long*) ((IntPtr) sourceHeader3 + 56L), (uint) *(int*) ((IntPtr) sourceHeader3 + 52L));
+
+    // Read 4 bytes for the last string length
+    byte[] lastLenBytes = new byte[4];
+    archiveFile.Read(lastLenBytes, 0, 4);
+    Marshal.Copy(lastLenBytes, 0, (IntPtr)((IntPtr)this.m_SourceHeader + 52L), 4);
+    
+    int lastLen = *(int*)((IntPtr)this.m_SourceHeader + 52L);
+    *(long*) ((IntPtr) this.m_SourceHeader + 56L) = (long) \u003CModule\u003E.@new((ulong) (uint) lastLen);
+    
+    // Read the last string
+    byte[] lastBytes = new byte[lastLen];
+    archiveFile.Read(lastBytes, 0, lastLen);
+    Marshal.Copy(lastBytes, 0, (IntPtr)(*(long*)((IntPtr)this.m_SourceHeader + 56L)), lastLen);
+    
     this.m_SourceLength = (uint) (int) (archiveFile.Position - (long) this.m_SourceStartOffset);
   }
 
