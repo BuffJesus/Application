@@ -39,7 +39,7 @@ internal class ModEnvironmentManager
       }
       streamReader.Close();
     }
-    catch (Exception ex)
+    catch (Exception)
     {
     }
     return false;

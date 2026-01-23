@@ -369,7 +369,7 @@ public class FileDatabase : ContentManager
     return fileController;
   }
 
-  public static FileDatabase Instance => (FileDatabase) ContentManager.Instance;
+  public static new FileDatabase Instance => (FileDatabase) ContentManager.Instance;
 
   public int FileCount => this.myFiles.Count;
 

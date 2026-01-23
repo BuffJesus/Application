@@ -84,7 +84,7 @@ public class FormSelectEntry : Form
     {
       this.AddEntries(regex, text, this.progressBar);
     }
-    catch (Exception ex)
+    catch (Exception)
     {
       this.AddEntries((Regex) null, text, this.progressBar);
     }

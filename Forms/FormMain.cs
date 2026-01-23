@@ -320,7 +320,7 @@ public class FormMain : FormApp, FileInterface
     this.PerformLayout();
   }
 
-  public static FormMain Instance => (FormMain) FormApp.Instance;
+  public static new FormMain Instance => (FormMain) FormApp.Instance;
 
   public FormMain() => this.InitializeComponent();
 

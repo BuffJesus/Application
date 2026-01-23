@@ -28,7 +28,7 @@ public class FormSelectBINEntry : FormSelectEntry
     this.FindEntries();
   }
 
-  public BINEntry Selected => (BINEntry) base.Selected;
+  public new BINEntry Selected => (BINEntry) base.Selected;
 
   public string CDefType
   {

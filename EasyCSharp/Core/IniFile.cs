@@ -66,7 +66,7 @@ public class IniFile
       IniFile.GetPrivateProfileString(Section, Key, Default, retVal, 128 /*0x80*/, this.myPath);
       return retVal.ToString();
     }
-    catch (Exception ex)
+    catch (Exception)
     {
       return Default;
     }

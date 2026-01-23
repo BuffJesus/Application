@@ -87,14 +87,15 @@ public class FormBIG : FormTreeFileController
 
       SaveFileDialog saveFileDialog = new SaveFileDialog();
       saveFileDialog.FileName = entry.DevSymbolName;
-      saveFileDialog.Filter = "Legacy .X (*.x)|*.x|OBJ (*.obj)|*.obj|glTF (*.gltf)|*.gltf";
-      
+      saveFileDialog.Filter = "Legacy .X (*.x)|*.x|OBJ (*.obj)|*.obj";
+
       if (saveFileDialog.ShowDialog() != DialogResult.OK)
           return;
 
       ExportFormat format = ExportFormat.X;
-      if (saveFileDialog.FilterIndex == 2) format = ExportFormat.OBJ;
-      else if (saveFileDialog.FilterIndex == 3) format = ExportFormat.GLTF;
+      string extension = Path.GetExtension(saveFileDialog.FileName)?.ToLowerInvariant();
+      if (extension == ".obj") format = ExportFormat.OBJ;
+      else if (saveFileDialog.FilterIndex == 2) format = ExportFormat.OBJ;
 
       string directory = Path.GetDirectoryName(saveFileDialog.FileName);
       string fileName = Path.GetFileNameWithoutExtension(saveFileDialog.FileName);

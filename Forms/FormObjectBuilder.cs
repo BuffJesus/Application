@@ -659,6 +659,11 @@ public class FormObjectBuilder : Form
       return obj.GetType() == typeof (string) ? this.Entry.DevSymbolName.Equals(obj) : base.Equals(obj);
     }
 
+    public override int GetHashCode()
+    {
+      return this.Entry.DevSymbolName.GetHashCode();
+    }
+
     public int CompareTo(object o)
     {
       return this.Entry.DevSymbolName.CompareTo((o as FormObjectBuilder.AssetComboBoxItem).Entry.DevSymbolName);

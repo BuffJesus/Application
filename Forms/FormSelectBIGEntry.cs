@@ -44,7 +44,7 @@ public class FormSelectBIGEntry : FormSelectEntry
     this.listViewEntries.Columns[0].Width = this.listViewEntries.ClientSize.Width;
   }
 
-  public AssetEntry Selected => (AssetEntry) base.Selected;
+  public new AssetEntry Selected => (AssetEntry) base.Selected;
 
   protected override void AddEntries(Regex regex, string name, ProgressBar progressBar)
   {

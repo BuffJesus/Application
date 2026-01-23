@@ -53,6 +53,17 @@ AUTO_LOAD_TEXTURES = True
 # Set to True to convert DDS textures to PNG (for Mixamo compatibility)
 CONVERT_DDS_TO_PNG = True
 
+# Set to True to clean up mesh for export (fixes normal issues in Mixamo/UE)
+# Removes doubles, clears custom split normals, recalculates normals
+CLEANUP_MESH_FOR_EXPORT = True
+
+# Set to True to flip all face normals (try this if model appears inside-out)
+FLIP_NORMALS = False
+
+# Set to True to auto-join all mesh segments into one mesh (for multi-part models like Hero)
+# Also welds vertices at seams between segments
+AUTO_JOIN_MESHES = True
+
 
 def find_texture_in_folder(texture_name, folder):
     """Find a texture file in the specified folder"""
@@ -403,15 +414,7 @@ def create_blender_mesh(mesh_data, scale=0.01, source_folder=None):
     mesh.from_pydata(blender_verts, [], faces)
     mesh.update()
     
-    # Recalculate normals
-    bm = bmesh.new()
-    bm.from_mesh(mesh)
-    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-    bm.to_mesh(mesh)
-    bm.free()
-    mesh.update()
-    
-    # Apply UVs
+    # Apply UVs FIRST (before any cleanup that might affect vertex indices)
     if mesh_data['uvs'] and len(mesh_data['uvs']) >= len(verts):
         mesh.uv_layers.new(name='UVMap')
         uv_layer = mesh.uv_layers.active.data
@@ -421,12 +424,60 @@ def create_blender_mesh(mesh_data, scale=0.01, source_folder=None):
                 vert_idx = mesh.loops[loop_idx].vertex_index
                 if vert_idx < len(mesh_data['uvs']):
                     u, v = mesh_data['uvs'][vert_idx]
-                    u = u % 1.0
-                    v = 1.0 - (v % 1.0)
+                    # u = u % 1.0  # REMOVED: Wrapping destroyed tiled textures
+                    # v = 1.0 - (v % 1.0) # REMOVED: Wrapping destroyed tiled textures
+                    v = 1.0 - v
                     uv_layer[loop_idx].uv = (u, v)
     
-    # Custom normals (disabled by default for Blender 5.0)
-    if APPLY_CUSTOM_NORMALS and mesh_data['normals'] and len(mesh_data['normals']) >= len(verts):
+    # Mesh cleanup for export compatibility
+    if CLEANUP_MESH_FOR_EXPORT:
+        bm = bmesh.new()
+        bm.from_mesh(mesh)
+        
+        # Remove loose vertices (but NOT doubles - that destroys UV seams)
+        loose_verts = [v for v in bm.verts if not v.link_faces]
+        if loose_verts:
+            bmesh.ops.delete(bm, geom=loose_verts, context='VERTS')
+        
+        # Recalculate normals to point outward
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+        
+        # Flip normals if requested
+        if FLIP_NORMALS:
+            bmesh.ops.reverse_faces(bm, faces=bm.faces)
+        
+        bm.to_mesh(mesh)
+        bm.free()
+        
+        # Clear any custom split normals data (causes issues in some exporters)
+        try:
+            if mesh.has_custom_normals:
+                mesh.free_normals_split()
+        except:
+            pass
+        
+        # Clear sharp edges for clean export
+        for edge in mesh.edges:
+            edge.use_edge_sharp = False
+        
+        # Use smooth shading for better normals
+        for poly in mesh.polygons:
+            poly.use_smooth = True
+        
+        mesh.update()
+    else:
+        # Basic normal recalculation
+        bm = bmesh.new()
+        bm.from_mesh(mesh)
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+        if FLIP_NORMALS:
+            bmesh.ops.reverse_faces(bm, faces=bm.faces)
+        bm.to_mesh(mesh)
+        bm.free()
+        mesh.update()
+    
+    # Custom normals (disabled by default for Blender 5.0, and skipped if cleanup enabled)
+    if APPLY_CUSTOM_NORMALS and not CLEANUP_MESH_FOR_EXPORT and mesh_data['normals'] and len(mesh_data['normals']) >= len(verts):
         try:
             if ORIENT_FOR_UNREAL:
                 blender_normals = [(-n[1], n[0], n[2]) for n in mesh_data['normals']]
@@ -643,9 +694,45 @@ def import_single_file(filepath, scale=0.01, create_collection=True):
         for obj, mesh_data in mesh_objects:
             apply_skin_weights(obj, mesh_data, armature)
     
+    # Auto-join meshes if enabled and there are multiple meshes
+    final_meshes = [obj for obj, _ in mesh_objects]
+    if AUTO_JOIN_MESHES and len(final_meshes) > 1:
+        # Deselect all
+        bpy.ops.object.select_all(action='DESELECT')
+        
+        # Select all mesh objects
+        for obj in final_meshes:
+            obj.select_set(True)
+        
+        # Set the first mesh as active
+        bpy.context.view_layer.objects.active = final_meshes[0]
+        
+        # Join all selected meshes
+        bpy.ops.object.join()
+        
+        # Get the joined mesh
+        joined_obj = bpy.context.active_object
+        joined_obj.name = data['name']
+        
+        # Weld vertices at seams (merge by distance)
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.mesh.remove_doubles(threshold=0.001)  # Small threshold to only merge seam verts
+        bpy.ops.mesh.normals_make_consistent(inside=False)
+        bpy.ops.object.mode_set(mode='OBJECT')
+        
+        # Apply smooth shading
+        for poly in joined_obj.data.polygons:
+            poly.use_smooth = True
+        
+        joined_obj.data.update()
+        
+        final_meshes = [joined_obj]
+        print(f"    Joined {len(mesh_objects)} meshes, welded seams")
+    
     return {
         'name': data['name'],
-        'meshes': [obj for obj, _ in mesh_objects],
+        'meshes': final_meshes,
         'armature': armature
     }
 

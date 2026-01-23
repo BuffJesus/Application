@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Text;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using FableMod.Gfx.Integration;
 
 namespace ChocolateBox
@@ -9,20 +10,33 @@ namespace ChocolateBox
     public enum ExportFormat
     {
         X,
-        OBJ,
-        GLTF
+        OBJ
     }
 
     public static class ModelExporter
     {
-        private struct PrimitiveInfo
+        private class ParsedMesh
         {
-            public int indexStart;
-            public int indexCount;
-            public string textureName;
+            public string Name;
+            public List<float> Vertices = new List<float>();
+            public List<int[]> Faces = new List<int[]>();
+            public List<float> Uvs = new List<float>();
+            public string TextureName;
+            public List<string> MaterialTextures = new List<string>();
+            public List<int> FaceMaterialIndices = new List<int>();
         }
 
         private const float DefaultScale = 0.01f;
+
+        private static void TransformPositionForObj(float rawX, float rawY, float rawZ, out float x, out float y, out float z)
+        {
+            // Transform to Z+ up, X+ forward (matching glTF output)
+            // Fable .X in practice: Y forward, Z up, X right
+            // Transform: X_obj = -Y_fable, Y_obj = Z_fable, Z_obj = X_fable
+            x = -rawY * DefaultScale;
+            y = rawZ * DefaultScale;
+            z = rawX * DefaultScale;
+        }
 
         public static void Export(GfxModelLOD lod, string directory, string fileName, ExportFormat format)
         {
@@ -57,11 +71,6 @@ namespace ChocolateBox
                 {
                     Console.WriteLine($"[DEBUG_LOG] Converting to OBJ: {fileName}.obj");
                     ConvertToObj(xPath, Path.Combine(directory, fileName + ".obj"));
-                }
-                else if (format == ExportFormat.GLTF)
-                {
-                    Console.WriteLine($"[DEBUG_LOG] Converting to glTF: {fileName}.gltf");
-                    ConvertToGltf(xPath, Path.Combine(directory, fileName + ".gltf"));
                 }
             }
             catch (Exception ex)
@@ -154,10 +163,7 @@ namespace ChocolateBox
             }
         }
 
-        private static float WrapUV(float v)
-        {
-            return v - (float)Math.Floor(v);
-        }
+
 
         private static void ConvertToObj(string xPath, string objPath)
         {
@@ -256,7 +262,8 @@ namespace ChocolateBox
 
                     XFileTokenReader reader = new XFileTokenReader(meshBlock);
 
-                    if (reader.TryParseInt(out int vertexCount))
+                    int vertexCount = 0;
+                    if (reader.TryParseInt(out vertexCount))
                     {
                         Console.WriteLine($"[DEBUG_LOG] OBJ: Parsed vertex count: {vertexCount}");
                         
@@ -278,29 +285,47 @@ namespace ChocolateBox
                                 currentTexture = meshBlock.Substring(quoteStart + 1, quoteEnd - quoteStart - 1);
                                 Console.WriteLine($"[DEBUG_LOG] OBJ: Found texture: {currentTexture}");
                                 currentTexture = Path.GetFileName(currentTexture);
-                                if (currentTexture.ToLower().EndsWith(".tga") || currentTexture.ToLower().EndsWith(".bmp") || currentTexture.ToLower().EndsWith(".jpg") || currentTexture.ToLower().EndsWith(".png"))
-                                    currentTexture = Path.ChangeExtension(currentTexture, ".dds");
-                                else if (!currentTexture.ToLower().EndsWith(".dds"))
+                                
+                                // Preserve the original extension to match on-disk textures
+                                // (Avoid forcing .dds since some sources are not DDS.)
+                                if (string.IsNullOrEmpty(Path.GetExtension(currentTexture)))
                                     currentTexture += ".dds";
                             }
                         }
                     }
 
-                    string matName = !string.IsNullOrEmpty(currentTexture) ? Path.GetFileNameWithoutExtension(currentTexture) : $"Material_{vertexOffset}";
-                    if (!string.IsNullOrEmpty(currentTexture) && !definedMaterials.Contains(matName))
+                    string mtlName = !string.IsNullOrEmpty(currentTexture) ? Path.GetFileNameWithoutExtension(currentTexture) : $"Material_{vertexOffset}";
+                    if (!string.IsNullOrEmpty(currentTexture))
                     {
-                        mtlContent.AppendLine($"newmtl {matName}");
-                        mtlContent.AppendLine("Ka 1.000 1.000 1.000");
-                        mtlContent.AppendLine("Kd 1.000 1.000 1.000");
-                        mtlContent.AppendLine("Ks 0.000 0.000 0.000");
-                        mtlContent.AppendLine($"map_Kd {currentTexture}");
-                        mtlContent.AppendLine();
-                        definedMaterials.Add(matName);
+                        if (!definedMaterials.Contains(mtlName))
+                        {
+                            mtlContent.AppendLine($"newmtl {mtlName}");
+                            mtlContent.AppendLine("Ka 1.000 1.000 1.000");
+                            mtlContent.AppendLine("Kd 1.000 1.000 1.000");
+                            mtlContent.AppendLine("Ks 0.000 0.000 0.000");
+                            mtlContent.AppendLine($"map_Kd {currentTexture}");
+                            mtlContent.AppendLine();
+                            definedMaterials.Add(mtlName);
+                        }
+                    }
+                    else
+                    {
+                        // Default material for meshes without textures
+                        if (!definedMaterials.Contains(mtlName))
+                        {
+                            mtlContent.AppendLine($"newmtl {mtlName}");
+                            mtlContent.AppendLine("Ka 0.200 0.200 0.200");
+                            mtlContent.AppendLine("Kd 0.600 0.600 0.600");
+                            mtlContent.AppendLine("Ks 0.000 0.000 0.000");
+                            mtlContent.AppendLine();
+                            definedMaterials.Add(mtlName);
+                        }
                     }
 
                     string objMeshName = !string.IsNullOrEmpty(meshName) ? meshName : $"Mesh_{vertexOffset}_{meshCount}";
-                    objContent.AppendLine($"g {objMeshName}");
-                    objContent.AppendLine($"usemtl {matName}");
+                    objContent.AppendLine($"o {objMeshName}");
+                    objContent.AppendLine($"usemtl {mtlName}");
+                    objContent.AppendLine("s 1");
 
                     for (int j = 0; j < vertexCount; j++)
                     {
@@ -308,16 +333,16 @@ namespace ChocolateBox
                             reader.TryParseFloat(out float rawY) && 
                             reader.TryParseFloat(out float rawZ))
                         {
-                            float x = -rawY * DefaultScale;
-                            float y = rawX * DefaultScale;
-                            float z = rawZ * DefaultScale;
+                            TransformPositionForObj(rawX, rawY, rawZ, out float x, out float y, out float z);
                             objContent.AppendLine($"v {x.ToString("F6", System.Globalization.CultureInfo.InvariantCulture)} {y.ToString("F6", System.Globalization.CultureInfo.InvariantCulture)} {z.ToString("F6", System.Globalization.CultureInfo.InvariantCulture)}");
                         }
                     }
 
                     meshCount++;
 
-                    int uvCountRead = 0;
+                    int uvCountWritten = 0;
+                    bool emitUvs = false;
+                    StringBuilder uvLines = new StringBuilder();
                     int uvIdx = meshBlock.IndexOf("MeshTextureCoords");
                     if (uvIdx != -1)
                     {
@@ -327,22 +352,30 @@ namespace ChocolateBox
                             XFileTokenReader uvReader = new XFileTokenReader(meshBlock.Substring(uvBlockStart + 1));
                             if (uvReader.TryParseInt(out int nUvs))
                             {
-                                for (int j = 0; j < vertexCount; j++)
+                                if (nUvs >= vertexCount)
                                 {
-                                    if (j < nUvs && uvReader.TryParseFloat(out float u) && uvReader.TryParseFloat(out float v))
+                                    emitUvs = true;
+                                    for (int j = 0; j < vertexCount; j++)
                                     {
-                                        objContent.AppendLine($"vt {WrapUV(u).ToString("F6", System.Globalization.CultureInfo.InvariantCulture)} {(1.0f - WrapUV(v)).ToString("F6", System.Globalization.CultureInfo.InvariantCulture)}");
-                                        uvCountRead++;
-                                    }
-                                    else if (j >= nUvs)
-                                    {
-                                        objContent.AppendLine("vt 0.000000 0.000000");
-                                        uvCountRead++;
+                                        if (uvReader.TryParseFloat(out float u) && uvReader.TryParseFloat(out float v))
+                                        {
+                                            uvLines.AppendLine($"vt {u.ToString("F6", System.Globalization.CultureInfo.InvariantCulture)} {(1.0f - v).ToString("F6", System.Globalization.CultureInfo.InvariantCulture)}");
+                                            uvCountWritten++;
+                                        }
+                                        else
+                                        {
+                                            emitUvs = false;
+                                            uvCountWritten = 0;
+                                            uvLines.Clear();
+                                            break;
+                                        }
                                     }
                                 }
                             }
                         }
                     }
+                    if (emitUvs)
+                        objContent.Append(uvLines.ToString());
 
                     if (reader.TryParseInt(out int faceCount))
                     {
@@ -360,13 +393,15 @@ namespace ChocolateBox
                                 if (indices.Count >= 3)
                                 {
                                     objContent.Append("f");
-                                    foreach (int idx in indices)
+                                    // Reverse winding for OBJ (DirectX is usually CW, OBJ is CCW)
+                                    // Combined with ORIENT_FOR_UNREAL transformation, this matches Python's logic
+                                    // (Python uses recalc_face_normals which typically yields CCW)
+                                    for (int k = indices.Count - 1; k >= 0; k--)
                                     {
+                                        int idx = indices[k];
                                         int vIdx = idx + 1 + vertexOffset;
-                                        if (uvCountRead > 0)
+                                        if (emitUvs)
                                         {
-                                            // OBJ indices are 1-based.
-                                            // Each vertex has an associated vt.
                                             int vtIdx = idx + 1 + uvOffset;
                                             objContent.Append($" {vIdx}/{vtIdx}");
                                         }
@@ -381,7 +416,8 @@ namespace ChocolateBox
                         }
                     }
                     vertexOffset += vertexCount;
-                    uvOffset += uvCountRead;
+                    if (emitUvs)
+                        uvOffset += uvCountWritten;
                 }
             }
 
@@ -390,394 +426,277 @@ namespace ChocolateBox
                 File.WriteAllText(mtlPath, mtlContent.ToString());
         }
 
-        private static void ConvertToGltf(string xPath, string gltfPath)
+        private static bool TryParseMeshMaterialList(string meshBlock, out List<string> materialTextures, out List<int> faceMaterialIndices)
         {
-            if (!File.Exists(xPath)) return;
+            materialTextures = new List<string>();
+            faceMaterialIndices = new List<int>();
 
-            List<float> positions = new List<float>();
-            List<float> uvs = new List<float>();
-            List<int> indices = new List<int>();
-            List<PrimitiveInfo> primitives = new List<PrimitiveInfo>();
+            int matListIdx = meshBlock.IndexOf("MeshMaterialList");
+            if (matListIdx == -1)
+                return false;
+
+            int blockStart = meshBlock.IndexOf("{", matListIdx);
+            if (blockStart == -1)
+                return false;
+
+            int depth = 1;
+            int blockEnd = -1;
+            for (int i = blockStart + 1; i < meshBlock.Length; i++)
+            {
+                if (meshBlock[i] == '{') depth++;
+                else if (meshBlock[i] == '}')
+                {
+                    depth--;
+                    if (depth == 0)
+                    {
+                        blockEnd = i;
+                        break;
+                    }
+                }
+            }
+
+            if (blockEnd == -1)
+                return false;
+
+            string matListBlock = meshBlock.Substring(blockStart + 1, blockEnd - blockStart - 1);
+            XFileTokenReader reader = new XFileTokenReader(matListBlock);
+
+            if (!reader.TryParseInt(out int materialCount))
+                return false;
+
+            if (!reader.TryParseInt(out int faceIndexCount))
+                return false;
+
+            for (int i = 0; i < faceIndexCount; i++)
+            {
+                if (reader.TryParseInt(out int matIdx))
+                    faceMaterialIndices.Add(matIdx);
+            }
+
+            materialTextures = ExtractMaterialTextures(matListBlock, materialCount);
+            return true;
+        }
+
+        private static List<string> ExtractMaterialTextures(string matListBlock, int expectedCount)
+        {
             List<string> textures = new List<string>();
+            int searchPos = 0;
 
-            string content = File.ReadAllText(xPath);
-            int vertexOffset = 0;
-
-                int searchPos = 0;
-                Console.WriteLine($"[DEBUG_LOG] GLTF: Starting mesh search in file of length {content.Length}");
-                while (searchPos < content.Length)
-                {
-                    int meshIdx = content.IndexOf("Mesh", searchPos);
-                    if (meshIdx == -1) 
-                    {
-                        Console.WriteLine($"[DEBUG_LOG] GLTF: No more 'Mesh' keywords found after pos {searchPos}");
-                        break;
-                    }
-
-                    Console.WriteLine($"[DEBUG_LOG] GLTF: Potential 'Mesh' keyword found at {meshIdx}");
-
-                    // Ensure it's not a template Mesh or another word containing "Mesh"
-                    // Check prefix
-                    bool isTemplate = false;
-                    if (meshIdx >= 9 && content.Substring(meshIdx - 9, 9) == "template ")
-                    {
-                        isTemplate = true;
-                    }
-
-                    // Ensure it's a standalone word "Mesh"
-                    bool isStandalone = true;
-                    if (meshIdx > 0 && char.IsLetterOrDigit(content[meshIdx - 1]))
-                    {
-                        isStandalone = false;
-                    }
-
-                    // Check if it's followed by whitespace or {
-                    char nextChar = meshIdx + 4 < content.Length ? content[meshIdx + 4] : '\0';
-                    bool hasValidSuffix = (nextChar == ' ' || nextChar == '\t' || nextChar == '\n' || nextChar == '\r' || nextChar == '{' || nextChar == '\0');
-
-                    if (isTemplate || !isStandalone || !hasValidSuffix)
-                    {
-                        Console.WriteLine($"[DEBUG_LOG] GLTF: Skipping 'Mesh' at {meshIdx} (isTemplate: {isTemplate}, isStandalone: {isStandalone}, hasValidSuffix: {hasValidSuffix}, nextChar: '{(nextChar == '\0' ? "NULL" : nextChar.ToString())}')");
-                        searchPos = meshIdx + 4;
-                        continue;
-                    }
-
-                    int blockStart = content.IndexOf("{", meshIdx);
-                    if (blockStart == -1) 
-                    {
-                        Console.WriteLine($"[DEBUG_LOG] GLTF: No opening brace found for Mesh at {meshIdx}");
-                        searchPos = meshIdx + 4;
-                        continue;
-                    }
-                    
-                    int depth = 1;
-                    int blockEnd = -1;
-                    for (int i = blockStart + 1; i < content.Length; i++)
-                    {
-                        if (content[i] == '{') depth++;
-                        else if (content[i] == '}')
-                        {
-                            depth--;
-                            if (depth == 0)
-                            {
-                                blockEnd = i;
-                                break;
-                            }
-                        }
-                    }
-
-                    if (blockEnd == -1)
-                    {
-                        Console.WriteLine($"[DEBUG_LOG] GLTF: No closing brace found for Mesh starting at {blockStart}");
-                        break;
-                    }
-                    searchPos = blockEnd + 1;
-
-                    string meshBlock = content.Substring(blockStart + 1, blockEnd - blockStart - 1);
-                    Console.WriteLine($"[DEBUG_LOG] GLTF: Processing Mesh block starting at {blockStart}, length: {meshBlock.Length}");
-                    
-                    // Try to get the name of the mesh from the content before {
-                    string meshHeader = content.Substring(meshIdx, blockStart - meshIdx);
-                    string[] headerTokens = meshHeader.Split(new[] { ' ', '\t', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
-                    string meshName = headerTokens.Length > 1 ? headerTokens[1] : null;
-
-                    XFileTokenReader reader = new XFileTokenReader(meshBlock);
-
-                    if (reader.TryParseInt(out int vertexCount))
-                    {
-                        Console.WriteLine($"[DEBUG_LOG] GLTF: Parsed vertex count: {vertexCount}");
-                        for (int j = 0; j < vertexCount; j++)
-                        {
-                            if (reader.TryParseFloat(out float rawX) && 
-                                reader.TryParseFloat(out float rawY) && 
-                                reader.TryParseFloat(out float rawZ))
-                            {
-                                positions.Add(-rawY * DefaultScale);
-                                positions.Add(rawX * DefaultScale);
-                                positions.Add(rawZ * DefaultScale);
-                            }
-                            else
-                            {
-                                 Console.WriteLine($"[DEBUG_LOG] GLTF: Failed to parse vertex {j} in Mesh at pos {meshIdx} (index {reader.Next()})");
-                                 break;
-                            }
-                        }
-
-                    int uvIdx = meshBlock.IndexOf("MeshTextureCoords");
-                    if (uvIdx != -1)
-                    {
-                        Console.WriteLine($"[DEBUG_LOG] GLTF: Found MeshTextureCoords in block at offset {uvIdx}");
-                        int uvBlockStart = meshBlock.IndexOf("{", uvIdx);
-                        if (uvBlockStart != -1)
-                        {
-                            XFileTokenReader uvReader = new XFileTokenReader(meshBlock.Substring(uvBlockStart + 1));
-                            if (uvReader.TryParseInt(out int nUvs))
-                            {
-                                Console.WriteLine($"[DEBUG_LOG] GLTF: UV count: {nUvs}");
-                                for (int j = 0; j < vertexCount; j++)
-                                {
-                                    if (j < nUvs && uvReader.TryParseFloat(out float u) && uvReader.TryParseFloat(out float v))
-                                    {
-                                        uvs.Add(WrapUV(u));
-                                        uvs.Add(1.0f - WrapUV(v));
-                                    }
-                                    else if (j >= nUvs)
-                                    {
-                                        uvs.Add(0); uvs.Add(0);
-                                    }
-                                    else
-                                    {
-                                        // TryParseFloat failed
-                                        uvs.Add(0); uvs.Add(0);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    else
-                    {
-                        Console.WriteLine("[DEBUG_LOG] GLTF: No MeshTextureCoords found for this mesh");
-                        for (int j = 0; j < vertexCount; j++)
-                        {
-                            uvs.Add(0); uvs.Add(0);
-                        }
-                    }
-
-                    string meshTextureName = null;
-                    int matListIdx = meshBlock.IndexOf("MeshMaterialList");
-                    if (matListIdx != -1)
-                    {
-                        Console.WriteLine($"[DEBUG_LOG] GLTF: Found MeshMaterialList in block at offset {matListIdx}");
-                        int texFileIdx = meshBlock.IndexOf("TextureFilename", matListIdx);
-                        if (texFileIdx != -1)
-                        {
-                            Console.WriteLine($"[DEBUG_LOG] GLTF: Found TextureFilename in block at offset {texFileIdx}");
-                            int quoteStart = meshBlock.IndexOf("\"", texFileIdx);
-                            int quoteEnd = meshBlock.IndexOf("\"", quoteStart + 1);
-                            if (quoteStart != -1 && quoteEnd != -1)
-                            {
-                                meshTextureName = meshBlock.Substring(quoteStart + 1, quoteEnd - quoteStart - 1);
-                                Console.WriteLine($"[DEBUG_LOG] GLTF: Found texture: {meshTextureName}");
-                                meshTextureName = Path.GetFileName(meshTextureName);
-                                if (meshTextureName.ToLower().EndsWith(".tga") || meshTextureName.ToLower().EndsWith(".bmp") || meshTextureName.ToLower().EndsWith(".jpg") || meshTextureName.ToLower().EndsWith(".png"))
-                                    meshTextureName = Path.ChangeExtension(meshTextureName, ".dds");
-                                else if (!meshTextureName.ToLower().EndsWith(".dds"))
-                                    meshTextureName += ".dds";
-
-                                if (!textures.Contains(meshTextureName))
-                                    textures.Add(meshTextureName);
-                            }
-                        }
-                    }
-
-                    int primitiveIndexStart = indices.Count;
-                    if (reader.TryParseInt(out int faceCount))
-                    {
-                        Console.WriteLine($"[DEBUG_LOG] GLTF: Parsed face count: {faceCount}");
-                        for (int j = 0; j < faceCount; j++)
-                        {
-                            if (reader.TryParseInt(out int nIndices))
-                            {
-                                List<int> faceIndices = new List<int>();
-                                for (int k = 0; k < nIndices; k++)
-                                {
-                                    if (reader.TryParseInt(out int idx))
-                                        faceIndices.Add(idx + vertexOffset);
-                                }
-
-                                if (faceIndices.Count >= 3)
-                                {
-                                    for (int k = 1; k < faceIndices.Count - 1; k++)
-                                    {
-                                        // Winding flip for glTF (CCW)
-                                        indices.Add(faceIndices[0]);
-                                        indices.Add(faceIndices[k + 1]);
-                                        indices.Add(faceIndices[k]);
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    primitives.Add(new PrimitiveInfo { 
-                        indexStart = primitiveIndexStart, 
-                        indexCount = indices.Count - primitiveIndexStart,
-                        textureName = meshTextureName
-                    });
-
-                    vertexOffset += vertexCount;
-                }
-            }
-
-            if (positions.Count == 0)
+            while (searchPos < matListBlock.Length && textures.Count < expectedCount)
             {
-                Console.WriteLine("[DEBUG_LOG] GLTF: No geometry found to export to glTF for {0}. Total primitives: {1}", xPath, primitives.Count);
-                return;
+                int matIdx = matListBlock.IndexOf("Material", searchPos);
+                if (matIdx == -1)
+                    break;
+
+                bool isStandalone = matIdx == 0 || !char.IsLetterOrDigit(matListBlock[matIdx - 1]);
+                if (!isStandalone)
+                {
+                    searchPos = matIdx + 1;
+                    continue;
+                }
+
+                int braceStart = matListBlock.IndexOf("{", matIdx);
+                if (braceStart == -1)
+                    break;
+
+                int depth = 1;
+                int braceEnd = -1;
+                for (int i = braceStart + 1; i < matListBlock.Length; i++)
+                {
+                    if (matListBlock[i] == '{') depth++;
+                    else if (matListBlock[i] == '}')
+                    {
+                        depth--;
+                        if (depth == 0)
+                        {
+                            braceEnd = i;
+                            break;
+                        }
+                    }
+                }
+
+                if (braceEnd == -1)
+                    break;
+
+                string matBlock = matListBlock.Substring(braceStart + 1, braceEnd - braceStart - 1);
+                string textureName = FindFirstTextureFilename(matBlock);
+                textures.Add(textureName);
+
+                searchPos = braceEnd + 1;
             }
 
-            try
+            while (textures.Count < expectedCount)
+                textures.Add(null);
+
+            return textures;
+        }
+
+        private static string FindFirstTextureFilename(string block)
+        {
+            int texFileIdx = block.IndexOf("TextureFilename");
+            if (texFileIdx == -1)
+                return null;
+
+            int quoteStart = block.IndexOf("\"", texFileIdx);
+            int quoteEnd = quoteStart != -1 ? block.IndexOf("\"", quoteStart + 1) : -1;
+            if (quoteStart == -1 || quoteEnd == -1)
+                return null;
+
+            string textureName = block.Substring(quoteStart + 1, quoteEnd - quoteStart - 1);
+            textureName = Path.GetFileName(textureName);
+            if (string.IsNullOrEmpty(Path.GetExtension(textureName)))
+                textureName += ".dds";
+
+            return textureName;
+        }
+
+        private static List<ParsedMesh> ParseMeshesFromX(string content, string baseName)
+        {
+            List<ParsedMesh> meshes = new List<ParsedMesh>();
+            string normalized = content.Replace("\r\n", "\n").Replace("\r", "\n");
+
+            string framePattern = @"Frame\s+([\w-]+)\s*\{\s*\n?\s*FrameTransformMatrix\s*\{[^}]+\}\s*\n?\s*Mesh\s*\{";
+            MatchCollection matches = Regex.Matches(normalized, framePattern, RegexOptions.Singleline);
+            foreach (Match match in matches)
             {
-                // Calculate bounding box
-                float minX = float.MaxValue, minY = float.MaxValue, minZ = float.MaxValue;
-                float maxX = float.MinValue, maxY = float.MinValue, maxZ = float.MinValue;
-                for (int i = 0; i < positions.Count; i += 3)
+                string frameName = match.Groups[1].Value;
+                if (ShouldSkipFrame(frameName, baseName))
+                    continue;
+
+                int meshStart = match.Index + match.Length;
+                int depth = 1;
+                int pos = meshStart;
+                while (pos < normalized.Length && depth > 0)
                 {
-                    float x = positions[i];
-                    float y = positions[i + 1];
-                    float z = positions[i + 2];
-                    minX = Math.Min(minX, x); minY = Math.Min(minY, y); minZ = Math.Min(minZ, z);
-                    maxX = Math.Max(maxX, x); maxY = Math.Max(maxY, y); maxZ = Math.Max(maxZ, z);
+                    char c = normalized[pos];
+                    if (c == '{') depth++;
+                    else if (c == '}') depth--;
+                    pos++;
                 }
 
-                Console.WriteLine($"[DEBUG_LOG] Bounding box: min({minX}, {minY}, {minZ}) max({maxX}, {maxY}, {maxZ})");
-                Console.WriteLine($"[DEBUG_LOG] Total vertices: {positions.Count / 3}, Total indices: {indices.Count}, Primitives: {primitives.Count}");
+                if (depth != 0 || pos <= meshStart)
+                    continue;
 
-                // Create Binary Buffers
-                byte[] posBytes = new byte[positions.Count * 4];
-                for (int i = 0; i < positions.Count; i++)
-                {
-                    byte[] bytes = BitConverter.GetBytes(positions[i]);
-                    if (!BitConverter.IsLittleEndian) Array.Reverse(bytes);
-                    Buffer.BlockCopy(bytes, 0, posBytes, i * 4, 4);
-                }
-
-                byte[] uvBytes = new byte[uvs.Count * 4];
-                for (int i = 0; i < uvs.Count; i++)
-                {
-                    byte[] bytes = BitConverter.GetBytes(uvs[i]);
-                    if (!BitConverter.IsLittleEndian) Array.Reverse(bytes);
-                    Buffer.BlockCopy(bytes, 0, uvBytes, i * 4, 4);
-                }
-
-                byte[] idxBytes = new byte[indices.Count * 4];
-                for (int i = 0; i < indices.Count; i++)
-                {
-                    byte[] bytes = BitConverter.GetBytes(indices[i]);
-                    if (!BitConverter.IsLittleEndian) Array.Reverse(bytes);
-                    Buffer.BlockCopy(bytes, 0, idxBytes, i * 4, 4);
-                }
-
-                string posBase64 = Convert.ToBase64String(posBytes);
-                string uvBase64 = Convert.ToBase64String(uvBytes);
-                string idxBase64 = Convert.ToBase64String(idxBytes);
-
-                int posByteLength = posBytes.Length;
-                int uvByteLength = uvBytes.Length;
-                int idxByteLength = idxBytes.Length;
-
-                bool hasUVs = uvs.Count > 0;
-                int firstPrimAccessorIdx = hasUVs ? 3 : 2;
-
-                // Build glTF JSON
-                StringBuilder gltf = new StringBuilder();
-                gltf.AppendLine("{");
-                gltf.AppendLine("  \"asset\": { \"version\": \"2.0\", \"generator\": \"ChocolateBox\" },");
-                gltf.AppendLine("  \"scenes\": [ { \"nodes\": [ 0 ] } ],");
-                gltf.AppendLine("  \"nodes\": [ { \"mesh\": 0 } ],");
-                gltf.AppendLine("  \"meshes\": [");
-                gltf.AppendLine("    {");
-                gltf.AppendLine("      \"primitives\": [");
-                for (int i = 0; i < primitives.Count; i++)
-                {
-                    var prim = primitives[i];
-                    gltf.AppendLine("        {");
-                    gltf.Append("          \"attributes\": { \"POSITION\": 1");
-                    if (hasUVs) gltf.Append(", \"TEXCOORD_0\": 2");
-                    gltf.AppendLine(" },");
-                    int matIdx = textures.IndexOf(prim.textureName);
-                    // Each primitive's indices are stored in a unique accessor to avoid data aliasing
-                    gltf.AppendLine($"          \"indices\": {firstPrimAccessorIdx + i}" + (matIdx == -1 ? "" : $", \"material\": {matIdx}"));
-                    gltf.Append("        }" + (i < primitives.Count - 1 ? "," : "") + "\n");
-                }
-                gltf.AppendLine("      ]");
-                gltf.AppendLine("    }");
-                gltf.AppendLine("  ],");
-
-                if (textures.Count > 0)
-                {
-                    gltf.AppendLine("  \"materials\": [");
-                    for (int i = 0; i < textures.Count; i++)
-                    {
-                        gltf.AppendLine("    { \"pbrMetallicRoughness\": { \"baseColorTexture\": { \"index\": " + i + " }, \"metallicFactor\": 0.0, \"roughnessFactor\": 1.0 }, \"doubleSided\": true }" + (i < textures.Count - 1 ? "," : ""));
-                    }
-                    gltf.AppendLine("  ],");
-                    
-                    gltf.AppendLine("  \"textures\": [");
-                    for (int i = 0; i < textures.Count; i++)
-                    {
-                        gltf.AppendLine("    { \"sampler\": 0, \"source\": " + i + " }" + (i < textures.Count - 1 ? "," : ""));
-                    }
-                    gltf.AppendLine("  ],");
-                    
-                    gltf.AppendLine("  \"samplers\": [");
-                    gltf.AppendLine("    { \"magFilter\": 9729, \"minFilter\": 9987, \"wrapS\": 10497, \"wrapT\": 10497 }");
-                    gltf.AppendLine("  ],");
-                    
-                    gltf.AppendLine("  \"images\": [");
-                    for (int i = 0; i < textures.Count; i++)
-                    {
-                        gltf.AppendLine("    { \"uri\": \"" + textures[i] + "\" }" + (i < textures.Count - 1 ? "," : ""));
-                    }
-                    gltf.AppendLine("  ],");
-                }
-
-                gltf.AppendLine("  \"accessors\": [");
-                gltf.AppendLine("    {"); // Legacy Indices (0)
-                gltf.AppendLine("      \"bufferView\": 0,");
-                gltf.AppendLine("      \"componentType\": 5125,"); // UNSIGNED_INT
-                gltf.AppendLine($"      \"count\": {indices.Count},");
-                gltf.AppendLine("      \"type\": \"SCALAR\"");
-                gltf.AppendLine("    },");
-                gltf.AppendLine("    {"); // Positions (1)
-                gltf.AppendLine("      \"bufferView\": 1,");
-                gltf.AppendLine("      \"componentType\": 5126,"); // FLOAT
-                gltf.AppendLine($"      \"count\": {positions.Count / 3},");
-                gltf.AppendLine("      \"type\": \"VEC3\",");
-                gltf.AppendLine($"      \"min\": [ {minX.ToString(System.Globalization.CultureInfo.InvariantCulture)}, {minY.ToString(System.Globalization.CultureInfo.InvariantCulture)}, {minZ.ToString(System.Globalization.CultureInfo.InvariantCulture)} ],");
-                gltf.AppendLine($"      \"max\": [ {maxX.ToString(System.Globalization.CultureInfo.InvariantCulture)}, {maxY.ToString(System.Globalization.CultureInfo.InvariantCulture)}, {maxZ.ToString(System.Globalization.CultureInfo.InvariantCulture)} ]");
-                gltf.AppendLine("    }");
-                if (hasUVs)
-                {
-                    gltf.AppendLine("    , {"); // UVs (2)
-                    gltf.AppendLine("      \"bufferView\": 2,");
-                    gltf.AppendLine("      \"componentType\": 5126,"); // FLOAT
-                    gltf.AppendLine($"      \"count\": {uvs.Count / 2},");
-                    gltf.AppendLine("      \"type\": \"VEC2\"");
-                    gltf.AppendLine("    }");
-                }
-                
-                // Accessors for each primitive's indices
-                for (int i = 0; i < primitives.Count; i++)
-                {
-                    var prim = primitives[i];
-                    gltf.AppendLine("    , {");
-                    gltf.AppendLine("      \"bufferView\": 0,");
-                    gltf.AppendLine($"      \"byteOffset\": {prim.indexStart * 4},");
-                    gltf.AppendLine("      \"componentType\": 5125,"); // UNSIGNED_INT
-                    gltf.AppendLine($"      \"count\": {prim.indexCount},");
-                    gltf.AppendLine("      \"type\": \"SCALAR\"");
-                    gltf.AppendLine("    }");
-                }
-                
-                gltf.AppendLine("  ],");
-                gltf.AppendLine("  \"bufferViews\": [");
-                gltf.AppendLine("    { \"buffer\": 0, \"byteLength\": " + idxByteLength + ", \"target\": 34963 },");
-                gltf.AppendLine("    { \"buffer\": 1, \"byteLength\": " + posByteLength + ", \"target\": 34962 }");
-                if (hasUVs) gltf.AppendLine("    , { \"buffer\": 2, \"byteLength\": " + uvByteLength + ", \"target\": 34962 }");
-                gltf.AppendLine("  ],");
-                gltf.AppendLine("  \"buffers\": [");
-                gltf.AppendLine("    { \"byteLength\": " + idxByteLength + ", \"uri\": \"data:application/octet-stream;base64," + idxBase64 + "\" },");
-                gltf.AppendLine("    { \"byteLength\": " + posByteLength + ", \"uri\": \"data:application/octet-stream;base64," + posBase64 + "\" }");
-                if (hasUVs) gltf.AppendLine("    , { \"byteLength\": " + uvByteLength + ", \"uri\": \"data:application/octet-stream;base64," + uvBase64 + "\" }");
-                gltf.AppendLine("  ]");
-                gltf.AppendLine("}");
-
-                File.WriteAllText(gltfPath, gltf.ToString());
+                string meshBlock = normalized.Substring(meshStart, pos - meshStart - 1);
+                ParsedMesh mesh = ParseMeshBlock(meshBlock, frameName);
+                if (mesh.Vertices.Count > 0 && mesh.Faces.Count > 0)
+                    meshes.Add(mesh);
             }
-            catch (Exception ex)
+
+            return meshes;
+        }
+
+        private static bool ShouldSkipFrame(string frameName, string baseName)
+        {
+            if (string.IsNullOrEmpty(frameName))
+                return true;
+
+            string lower = frameName.ToLowerInvariant();
+            string[] skipNames = new string[]
             {
-                Console.WriteLine("[DEBUG_LOG] Error writing glTF file {0}: {1}", gltfPath, ex.Message);
+                "frame",
+                "mesh",
+                "template",
+                "movement",
+                "scene-root",
+                "orphan_helpers",
+                "hdmy_",
+                "hpnt_",
+                "bone_offset_matrix"
+            };
+
+            foreach (string skip in skipNames)
+            {
+                if (lower.Contains(skip))
+                    return true;
             }
+
+            if (frameName.StartsWith("MESH_", StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(frameName, baseName, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            return false;
+        }
+
+        private static ParsedMesh ParseMeshBlock(string meshBlock, string name)
+        {
+            ParsedMesh mesh = new ParsedMesh { Name = name };
+
+            Match vertMatch = Regex.Match(meshBlock, @"^\s*(\d+);\s*(.*?);;", RegexOptions.Singleline);
+            if (!vertMatch.Success)
+                return mesh;
+
+            string vertData = vertMatch.Groups[2].Value;
+            foreach (Match v in Regex.Matches(vertData, @"([-+]?\d*\.?\d+(?:e[-+]?\d+)?)\s*;\s*([-+]?\d*\.?\d+(?:e[-+]?\d+)?)\s*;\s*([-+]?\d*\.?\d+(?:e[-+]?\d+)?)\s*;?"))
+            {
+                if (TryParseInvariantFloat(v.Groups[1].Value, out float x) &&
+                    TryParseInvariantFloat(v.Groups[2].Value, out float y) &&
+                    TryParseInvariantFloat(v.Groups[3].Value, out float z))
+                {
+                    mesh.Vertices.Add(x);
+                    mesh.Vertices.Add(y);
+                    mesh.Vertices.Add(z);
+                }
+            }
+
+            string remaining = meshBlock.Substring(vertMatch.Index + vertMatch.Length);
+            Match faceMatch = Regex.Match(remaining, @"^\s*(\d+);\s*(.*?);;", RegexOptions.Singleline);
+            if (faceMatch.Success)
+            {
+                string faceData = faceMatch.Groups[2].Value;
+                foreach (Match f in Regex.Matches(faceData, @"3;(\d+),(\d+),(\d+);?"))
+                {
+                    if (int.TryParse(f.Groups[1].Value, out int a) &&
+                        int.TryParse(f.Groups[2].Value, out int b) &&
+                        int.TryParse(f.Groups[3].Value, out int c))
+                    {
+                        mesh.Faces.Add(new int[] { a, b, c });
+                    }
+                }
+
+                remaining = remaining.Substring(faceMatch.Index + faceMatch.Length);
+            }
+
+            Match uvMatch = Regex.Match(remaining, @"MeshTextureCoords\s*\{\s*(\d+);\s*(.*?);;", RegexOptions.Singleline);
+            if (uvMatch.Success)
+            {
+                string uvData = uvMatch.Groups[2].Value;
+                foreach (Match u in Regex.Matches(uvData, @"([-+]?\d*\.?\d+(?:e[-+]?\d+)?)\s*;\s*([-+]?\d*\.?\d+(?:e[-+]?\d+)?)\s*;?"))
+                {
+                    if (TryParseInvariantFloat(u.Groups[1].Value, out float uu) &&
+                        TryParseInvariantFloat(u.Groups[2].Value, out float vv))
+                    {
+                        mesh.Uvs.Add(uu);
+                        mesh.Uvs.Add(vv);
+                    }
+                }
+            }
+
+            Match texMatch = Regex.Match(remaining, @"TextureFilename\s*\{\s*""([^""]+)""", RegexOptions.Singleline);
+            if (texMatch.Success)
+            {
+                string texName = Path.GetFileName(texMatch.Groups[1].Value);
+                if (string.IsNullOrEmpty(Path.GetExtension(texName)))
+                    texName += ".dds";
+                mesh.TextureName = texName;
+            }
+
+            if (TryParseMeshMaterialList(meshBlock, out List<string> materialTextures, out List<int> faceMaterialIndices))
+            {
+                mesh.MaterialTextures = materialTextures;
+                mesh.FaceMaterialIndices = faceMaterialIndices;
+            }
+
+            return mesh;
+        }
+
+        private static bool TryParseInvariantFloat(string value, out float result)
+        {
+            return float.TryParse(
+                value,
+                System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out result);
         }
     }
 }

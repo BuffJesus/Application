@@ -228,6 +228,7 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <Content Include="2026-01-23 09_03_03-_ (Unsaved) - Blender 5.0.0.png" />
     <Content Include="BanditKing.X" />
     <Content Include="fable_x_bulk_importer.py" />
     <Content Include="MESH_CASTLE_ENTRANCE_HALL.X" />
