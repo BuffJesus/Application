@@ -57,6 +57,8 @@ public class FormDayTip : Form
     this.richTextBoxTip.TabIndex = 0;
     this.richTextBoxTip.TabStop = false;
     this.richTextBoxTip.Text = "";
+    this.richTextBoxTip.WordWrap = true;
+    this.richTextBoxTip.ScrollBars = RichTextBoxScrollBars.Vertical;
     this.richTextBoxTip.LinkClicked += new LinkClickedEventHandler(this.richTextBoxTip_LinkClicked);
     this.buttonClose.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
     this.buttonClose.DialogResult = DialogResult.Cancel;
@@ -217,16 +219,25 @@ public class FormDayTip : Form
                         // Center the picture box vertically within the 260px area if height was shrunk
                         int verticalOffset = (targetMaxHeight - newHeight) / 2;
 
-                        int widthDiff = newWidth - this.pictureBox.Width;
-
+                        int oldWidth = this.pictureBox.Width;
                         this.pictureBox.Width = newWidth;
                         this.pictureBox.Height = newHeight;
                         this.pictureBox.Top = 12 + verticalOffset;
                         this.pictureBox.SizeMode = PictureBoxSizeMode.StretchImage;
 
-                        // Grow the form and move the text box
+                        int widthDiff = newWidth - oldWidth;
                         this.Width += widthDiff;
-                        this.richTextBoxTip.Left += widthDiff;
+
+                        int rightMargin = 12;
+                        int gap = 6;
+                        this.richTextBoxTip.Left = this.pictureBox.Right + gap;
+                        int tipWidth = this.ClientSize.Width - this.richTextBoxTip.Left - rightMargin;
+                        if (tipWidth < 200)
+                        {
+                            this.ClientSize = new Size(this.richTextBoxTip.Left + rightMargin + 200, this.ClientSize.Height);
+                            tipWidth = 200;
+                        }
+                        this.richTextBoxTip.Width = tipWidth;
                     }
                     catch { }
                 }

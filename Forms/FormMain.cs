@@ -226,8 +226,8 @@ public class FormMain : FormApp, FileInterface
     this.helpToolStripMenuItem.Text = "Help";
     this.aboutToolStripMenuItem.Name = "aboutToolStripMenuItem";
     this.aboutToolStripMenuItem.Size = new Size(172, 22);
-    this.aboutToolStripMenuItem.Text = "About ChocolateBox";
-    this.aboutToolStripMenuItem.ToolTipText = "About ChocolateBox";
+    this.aboutToolStripMenuItem.Text = "About Silver Chest";
+    this.aboutToolStripMenuItem.ToolTipText = "About Silver Chest";
     this.aboutToolStripMenuItem.Click += new EventHandler(this.aboutToolStripMenuItem_Click);
     this.panelLeft.Controls.Add((System.Windows.Forms.Control) this.listBoxFiles);
     this.panelLeft.Dock = DockStyle.Left;
@@ -303,10 +303,10 @@ public class FormMain : FormApp, FileInterface
     this.IsMdiContainer = true;
     this.MainMenuStrip = this.menuStripMain;
     this.Name = nameof (FormMain);
-    this.RegistryKey = "SOFTWARE\\FableMod\\ChocolateBox";
+    this.RegistryKey = "SOFTWARE\\FableMod\\SilverChest";
     this.StartPosition = FormStartPosition.CenterScreen;
-    this.Text = "ChocolateBox";
-    this.Title = "ChocolateBox";
+    this.Text = "Silver Chest";
+    this.Title = "Silver Chest";
     this.Load += new EventHandler(this.FormMain_Load);
     this.Shown += new EventHandler(this.FormMain_Shown);
     this.FormClosing += new FormClosingEventHandler(this.FormMain_FormClosing);
@@ -397,18 +397,42 @@ public class FormMain : FormApp, FileInterface
 
   public void AddMDI(Form form)
   {
+    Console.WriteLine($"[DEBUG] FormMain.AddMDI: Adding form {form.GetType().Name}");
     if (this.InvokeRequired)
     {
+      Console.WriteLine($"[DEBUG] FormMain.AddMDI: InvokeRequired, invoking on UI thread");
       this.Invoke((Delegate) new FormMain.AddMDIDelegate(this.AddMDI), (object) form);
     }
     else
     {
+      Console.WriteLine($"[DEBUG] FormMain.AddMDI: Setting MdiParent");
       form.MdiParent = (Form) this;
+      Console.WriteLine($"[DEBUG] FormMain.AddMDI: Applying theme");
+      System.Diagnostics.Stopwatch sw = System.Diagnostics.Stopwatch.StartNew();
       ThemeManager.ApplyTheme(form);
+      sw.Stop();
+      Console.WriteLine($"[DEBUG] FormMain.AddMDI: Theme applied in {sw.ElapsedMilliseconds}ms");
+      Console.WriteLine($"[DEBUG] FormMain.AddMDI: Adding event handlers");
       form.FormClosed += (s, e) => { this.BeginInvoke(new Action(() => this.SmartLayoutMdi())); };
       form.Resize += (s, e) => { this.OnMdiChildResize(form); };
-      form.Show();
+      Console.WriteLine($"[DEBUG] FormMain.AddMDI: Showing form (this may trigger TreeView population)");
+      sw.Restart();
+      try
+      {
+        form.Show();
+        sw.Stop();
+        Console.WriteLine($"[DEBUG] FormMain.AddMDI: Form.Show() completed in {sw.ElapsedMilliseconds}ms");
+      }
+      catch (Exception ex)
+      {
+        sw.Stop();
+        Console.WriteLine($"[ERROR] FormMain.AddMDI: Form.Show() failed after {sw.ElapsedMilliseconds}ms: {ex.Message}");
+        Console.WriteLine($"[ERROR] Stack trace: {ex.StackTrace}");
+        throw;
+      }
+      Console.WriteLine($"[DEBUG] FormMain.AddMDI: Calling SmartLayoutMdi");
       this.SmartLayoutMdi();
+      Console.WriteLine($"[DEBUG] FormMain.AddMDI: Completed");
     }
   }
 
@@ -808,7 +832,7 @@ public class FormMain : FormApp, FileInterface
       return;
     string str1 = this.listBoxFiles.Items[selectedIndex].ToString();
     string str2 = $"{Settings.FableDirectory}Backups\\{str1}";
-    if (File.Exists(str2) && MessageBox.Show("Backup already exists. Overwrite?", "ChocolateBox", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation) != DialogResult.Yes)
+    if (File.Exists(str2) && MessageBox.Show("Backup already exists. Overwrite?", "Silver Chest", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation) != DialogResult.Yes)
       return;
     Directory.CreateDirectory(Path.GetDirectoryName(str2));
     string text = this.statusStrip.Items[0].Text;
@@ -823,7 +847,7 @@ public class FormMain : FormApp, FileInterface
   {
     string str = this.listBoxFiles.Items[this.listBoxFiles.SelectedIndex].ToString();
     string sourceFileName = $"{Settings.FableDirectory}Backups\\{str}";
-    if (MessageBox.Show("Are you sure you want to rollback?", "ChocolateBox", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation) != DialogResult.Yes)
+    if (MessageBox.Show("Are you sure you want to rollback?", "Silver Chest", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation) != DialogResult.Yes)
       return;
     string text = this.statusStrip.Items[0].Text;
     this.statusStrip.Items[0].Text = $"Rolling back {str}, please wait...";

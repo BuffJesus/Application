@@ -10,6 +10,10 @@ using FableMod.CLRCore;
 
 namespace ChocolateBox
 {
+    /// <summary>
+    /// Processes bulk export of assets from BIG archives.
+    /// Supports exporting both meshes (3D models) and textures in parallel for performance.
+    /// </summary>
     internal class BulkExportProcessor : Processor
     {
         private List<AssetEntry> m_SelectedEntries;
@@ -17,6 +21,7 @@ namespace ChocolateBox
         private ExportFormat m_Format;
         private int m_MeshCount = 0;
         private int m_TextureCount = 0;
+        private int m_SkippedCount = 0;
 
         public BulkExportProcessor(List<AssetEntry> selectedEntries, string parentFolder, ExportFormat format)
         {
@@ -39,9 +44,20 @@ namespace ChocolateBox
 
             Parallel.ForEach(m_SelectedEntries, entry =>
             {
-                // Meshes are typically type 1, 2, 4, or 5 in the Graphics bank
-                if (((BIGBank)entry.Bank).Name == Settings.GetString("Banks", "Graphics") && 
-                    (entry.Type == 1U || entry.Type == 2U || entry.Type == 4U || entry.Type == 5U))
+                string bankName = ((BIGBank)entry.Bank).Name;
+                string graphicsBankName = Settings.GetString("Banks", "Graphics");
+                string texturesBankName = Settings.GetString("Banks", "Textures");
+                string guiTexturesBankName = Settings.GetString("Banks", "GUITextures");
+
+                // Check if this is a mesh entry
+                bool isMesh = bankName == graphicsBankName &&
+                              (entry.Type == 1U || entry.Type == 2U || entry.Type == 4U || entry.Type == 5U);
+
+                // Check if this is a texture entry
+                bool isTexture = (bankName == texturesBankName || bankName == guiTexturesBankName) &&
+                                 (entry.Type == 0U || entry.Type == 1U || entry.Type == 2U);
+
+                if (isMesh)
                 {
                     try
                     {
@@ -99,7 +115,57 @@ namespace ChocolateBox
                         Console.WriteLine(errorMsg);
                         if (ex.InnerException != null)
                             Console.WriteLine("[DEBUG_LOG] Inner Exception: {0}", ex.InnerException.Message);
+                        Interlocked.Increment(ref m_SkippedCount);
                     }
+                }
+                else if (isTexture)
+                {
+                    // Export standalone texture
+                    try
+                    {
+                        string textureFolder = Path.Combine(m_ParentFolder, "Textures");
+                        if (!Directory.Exists(textureFolder))
+                            Directory.CreateDirectory(textureFolder);
+
+                        GfxTexture texture = null;
+                        lock (this)
+                        {
+                            try
+                            {
+                                texture = new GfxTexture(entry);
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine("[DEBUG_LOG] Error creating GfxTexture for {0}: {1}", entry.DevSymbolName, ex.Message);
+                                Interlocked.Increment(ref m_SkippedCount);
+                                return;
+                            }
+                        }
+
+                        if (texture != null)
+                        {
+                            string texPath = Path.Combine(textureFolder, entry.DevSymbolName + ".dds");
+                            lock (this)
+                            {
+                                texture.Save(texPath, 0);
+                            }
+                            Interlocked.Increment(ref m_TextureCount);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine("[DEBUG_LOG] Error exporting standalone texture {0}: {1}", entry.DevSymbolName, ex.Message);
+                        if (ex.InnerException != null)
+                            Console.WriteLine("[DEBUG_LOG] Inner Exception: {0}", ex.InnerException.Message);
+                        Interlocked.Increment(ref m_SkippedCount);
+                    }
+                }
+                else
+                {
+                    // Unsupported asset type
+                    Interlocked.Increment(ref m_SkippedCount);
+                    Console.WriteLine("[DEBUG_LOG] Skipping unsupported asset: {0} (Bank: {1}, Type: {2})",
+                        entry.DevSymbolName, bankName, entry.Type);
                 }
 
                 int currentProcessed = Interlocked.Increment(ref processedCount);
@@ -111,12 +177,19 @@ namespace ChocolateBox
 
             progress.End();
             
-            FormMain.Instance.Invoke(new Action(() => 
+            FormMain.Instance.Invoke(new Action(() =>
             {
+                string message = string.Format(
+                    "Bulk export completed.\n\n" +
+                    "Meshes exported: {0}\n" +
+                    "Textures exported: {1}\n" +
+                    "Skipped (unsupported or errors): {2}",
+                    m_MeshCount, m_TextureCount, m_SkippedCount);
+
                 System.Windows.Forms.MessageBox.Show(
-                    string.Format("Bulk export completed.\nMeshes exported: {0}\nTextures exported: {1}", m_MeshCount, m_TextureCount), 
-                    "Export Complete", 
-                    System.Windows.Forms.MessageBoxButtons.OK, 
+                    message,
+                    "Export Complete",
+                    System.Windows.Forms.MessageBoxButtons.OK,
                     System.Windows.Forms.MessageBoxIcon.Information);
             }));
         }

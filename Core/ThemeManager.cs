@@ -35,6 +35,9 @@ namespace ChocolateBox
                 tv.LineColor = IsDarkMode ? Color.FromArgb(80, 80, 80) : Color.FromArgb(200, 200, 200);
                 tv.BorderStyle = BorderStyle.None;
                 tv.HotTracking = true;
+                // TreeNodes don't have a Controls collection to recurse into,
+                // and they inherit colors from TreeView, so we're done
+                return;
             }
             else if (control is ListBox lb)
             {
@@ -98,8 +101,6 @@ namespace ChocolateBox
             {
                 ms.BackColor = BackgroundColor;
                 ms.ForeColor = ForegroundColor;
-                ms.RenderMode = ToolStripRenderMode.Professional;
-                ms.Renderer = new ModernToolStripRenderer();
             }
             else if (control is ToolStrip ts)
             {
@@ -128,6 +129,9 @@ namespace ChocolateBox
             }
             else if (control is Panel p)
             {
+                // Note: panelTexture uses Direct3D rendering which clears with magenta (0xFFFF00FF)
+                // to indicate transparency. The panel background color doesn't affect this DirectX behavior.
+                // We keep the dark theme for consistency.
                 p.BackColor = BackgroundColor;
                 p.ForeColor = ForegroundColor;
             }

@@ -1,37 +1,67 @@
-﻿// Decompiled with JetBrains decompiler
-// Type: ChocolateBox.Progress
-// Assembly: ChocolateBox, Version=1.3.8.150, Culture=neutral, PublicKeyToken=null
-// MVID: 2BF4E5FB-25BF-4031-BC83-D8C6B8D9B45E
-// Assembly location: C:\Users\Cornelio\Desktop\Chocolate Box\ChocolateBox.exe
-
 using FableMod.CLRCore;
 
-#nullable disable
-namespace ChocolateBox;
-
-public class Progress : ProgressInterface
+namespace ChocolateBox
 {
-  private string myInfo;
-  private string myStepInfo;
-  private float myValue;
+    /// <summary>
+    /// Provides progress tracking for long-running operations.
+    /// Extends ProgressInterface from FableMod.CLRCore to provide standardized progress reporting.
+    ///
+    /// Usage:
+    /// <code>
+    /// Progress progress = new Progress();
+    /// progress.Begin(100); // Total steps
+    /// progress.Info = "Processing files...";
+    /// progress.StepInfo = "Step 1 of 100";
+    /// progress.Update(); // Increment progress
+    /// progress.End();
+    /// </code>
+    /// </summary>
+    public class Progress : ProgressInterface
+    {
+        private string myInfo;
+        private string myStepInfo;
+        private float myValue;
 
-  protected override void SetValue(float value) => this.myValue = value;
+        /// <summary>
+        /// Sets the current progress value (0.0 to 1.0 representing 0% to 100%).
+        /// This method is called internally by the ProgressInterface base class.
+        /// </summary>
+        /// <param name="value">Progress value between 0.0 and 1.0</param>
+        protected override void SetValue(float value)
+        {
+            myValue = value;
+        }
 
-  public string Info
-  {
-    get => this.myInfo;
-    set => this.myInfo = value;
-  }
+        /// <summary>
+        /// Gets or sets the main progress information message.
+        /// This typically describes the overall operation being performed.
+        /// Example: "Exporting textures..." or "Loading BIG file..."
+        /// </summary>
+        public string Info
+        {
+            get => myInfo;
+            set => myInfo = value;
+        }
 
-  public string StepInfo
-  {
-    get => this.myStepInfo;
-    set => this.myStepInfo = value;
-  }
+        /// <summary>
+        /// Gets or sets detailed step information for the current operation.
+        /// This typically provides more specific details about the current step.
+        /// Example: "(Bank 1 of 2: GBANK_MAIN_PC - 6290 entries)"
+        /// </summary>
+        public string StepInfo
+        {
+            get => myStepInfo;
+            set => myStepInfo = value;
+        }
 
-  public float Value
-  {
-    get => this.myValue;
-    set => this.SetValue(value);
-  }
+        /// <summary>
+        /// Gets or sets the current progress value (0.0 to 1.0 representing 0% to 100%).
+        /// Setting this value will update the progress through the base class SetValue method.
+        /// </summary>
+        public float Value
+        {
+            get => myValue;
+            set => SetValue(value);
+        }
+    }
 }

@@ -201,28 +201,31 @@ public class FormBIG : FormTreeFileController
     int bankCount = this.myBIG.BankCount;
     for (int index = 0; index < bankCount; ++index)
       steps += this.myBIG.get_Banks(index).EntryCount;
-    
+
+    Console.WriteLine($"[DEBUG] Building BIG tree with {steps} total entries across {bankCount} banks");
     progress.Begin(steps);
     this.treeView.BeginUpdate();
     this.ClearNodeCache();
     try
     {
-        int progressStep = steps / 100;
-        if (progressStep == 0) progressStep = 1;
+        // Update progress every 10 entries (was every 1%)
+        int progressStep = 10;
         int currentStep = 0;
+        System.DateTime startTime = System.DateTime.Now;
 
         for (int index1 = 0; index1 < bankCount; ++index1)
         {
           BIGBank bank = this.myBIG.get_Banks(index1);
-          progress.StepInfo = $"(Bank {index1 + 1} of {bankCount}: {bank.Name})";
+          int entryCount = bank.EntryCount;
+          progress.StepInfo = $"(Bank {index1 + 1} of {bankCount}: {bank.Name} - {entryCount} entries)";
+          Console.WriteLine($"[DEBUG] Processing bank {index1 + 1}/{bankCount}: {bank.Name} ({entryCount} entries)");
+
           TreeNode treeNode = new TreeNode();
           treeNode.Text = bank.Name;
           treeNode.Tag = (object) bank;
           treeNode.ImageIndex = 2;
           treeNode.SelectedImageIndex = 2;
-          // DON'T AddNode here, add it AFTER populating it
-          
-          int entryCount = bank.EntryCount;
+
           for (int index2 = 0; index2 < entryCount; ++index2)
           {
             AssetEntry o = bank.get_Entries(index2);
@@ -234,12 +237,19 @@ public class FormBIG : FormTreeFileController
 
           // Add the fully populated bank node in one go
           this.AddNode(null, treeNode);
+          // Collapse the node to prevent expensive layout calculations
+          treeNode.Collapse();
+          Console.WriteLine($"[DEBUG] Completed bank {index1 + 1}/{bankCount} in {(System.DateTime.Now - startTime).TotalSeconds:F1}s");
         }
+
+        Console.WriteLine($"[DEBUG] Total tree build time: {(System.DateTime.Now - startTime).TotalSeconds:F1}s");
     }
     finally
     {
         progress.StepInfo = "";
+        Console.WriteLine($"[DEBUG] Calling TreeView.EndUpdate()");
         this.treeView.EndUpdate();
+        Console.WriteLine($"[DEBUG] TreeView.EndUpdate() completed");
     }
     progress.End();
     if (this.myBIG != FileDatabase.Instance.Textures)

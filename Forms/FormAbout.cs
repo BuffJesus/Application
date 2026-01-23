@@ -48,7 +48,7 @@ public class FormAbout : Form
     this.labelInfo.Name = "labelInfo";
     this.labelInfo.Size = new Size(292, 241);
     this.labelInfo.TabIndex = 2;
-    this.labelInfo.Text = "ChocolateBox\r\n\r\nVersion  [Version]\r\nDate [Date]\r\n\r\nBrought to you by\r\n(in alphabetical order)\r\n\r\nAilia\r\nBayStone\r\nchaos\r\nHunter\r\nJohnDoe\r\nKeshire\r\nMarcopolo\r\nmorerunes\r\nSatan\r\nSilverback";
+    this.labelInfo.Text = "Silver Chest\r\n\r\nVersion  [Version]\r\nDate [Date]\r\n\r\nBrought to you by\r\n(in alphabetical order)\r\n\r\nAilia\r\nBayStone\r\nchaos\r\nHunter\r\nJohnDoe\r\nKeshire\r\nMarcopolo\r\nmorerunes\r\nSatan\r\nSilverback";
     this.labelInfo.TextAlign = ContentAlignment.MiddleCenter;
     this.panelInfo.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
     this.panelInfo.BorderStyle = BorderStyle.None;
@@ -67,7 +67,7 @@ public class FormAbout : Form
     this.MinimizeBox = false;
     this.Name = nameof (FormAbout);
     this.StartPosition = FormStartPosition.CenterParent;
-    this.Text = "About ChocolateBox";
+    this.Text = "About Silver Chest";
     this.panelInfo.ResumeLayout(false);
     this.ResumeLayout(false);
   }

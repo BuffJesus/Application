@@ -7,12 +7,41 @@ using FableMod.Gfx.Integration;
 
 namespace ChocolateBox
 {
+    /// <summary>
+    /// Supported 3D model export formats.
+    /// </summary>
     public enum ExportFormat
     {
+        /// <summary>DirectX .X format (native Fable format)</summary>
         X,
+        /// <summary>Wavefront OBJ format (widely supported)</summary>
         OBJ
     }
 
+    /// <summary>
+    /// Handles exporting 3D models from Fable to various formats.
+    ///
+    /// <para><b>Export Process:</b></para>
+    /// <list type="number">
+    /// <item>Model is first exported to DirectX .X format (native format)</item>
+    /// <item>If OBJ format requested, .X file is parsed and converted</item>
+    /// <item>Coordinate system is transformed to match target format conventions</item>
+    /// </list>
+    ///
+    /// <para><b>Coordinate Systems:</b></para>
+    /// <list type="bullet">
+    /// <item><b>Fable .X:</b> Y forward, Z up, X right</item>
+    /// <item><b>OBJ Output:</b> X forward, Z up, Y right (Z-up convention)</item>
+    /// </list>
+    ///
+    /// <para><b>Features:</b></para>
+    /// <list type="bullet">
+    /// <item>Exports geometry with vertex positions, normals, and UV coordinates</item>
+    /// <item>Preserves material assignments and texture references</item>
+    /// <item>Handles segmented meshes (maintains mesh groups)</item>
+    /// <item>Applies proper scaling (default: 0.01x for game units to world units)</item>
+    /// </list>
+    /// </summary>
     public static class ModelExporter
     {
         private class ParsedMesh
@@ -38,10 +67,25 @@ namespace ChocolateBox
             z = rawX * DefaultScale;
         }
 
+        /// <summary>
+        /// Exports a Fable 3D model to the specified format.
+        /// </summary>
+        /// <param name="lod">The model LOD (Level of Detail) to export. Typically LOD 0 is the highest quality.</param>
+        /// <param name="directory">Output directory where the model file will be saved.</param>
+        /// <param name="fileName">Base filename (without extension). Extension will be added based on format.</param>
+        /// <param name="format">Target export format (X or OBJ).</param>
+        /// <remarks>
+        /// The export process always creates an intermediate .X file first, then converts to OBJ if requested.
+        /// This is because the FableMod library natively exports to DirectX .X format.
+        /// <para>
+        /// For OBJ exports, the .X file is parsed and converted with proper coordinate transformation
+        /// and material mapping. The OBJ will include a .mtl material file if textures are referenced.
+        /// </para>
+        /// </remarks>
         public static void Export(GfxModelLOD lod, string directory, string fileName, ExportFormat format)
         {
             string xPath = Path.Combine(directory, fileName + ".X");
-            
+
             // Always export to .X first as a base or if requested
             Console.WriteLine($"[DEBUG_LOG] ModelExporter.Export: Starting export for {fileName} to {directory} (Format: {format})");
             Console.WriteLine($"[DEBUG_LOG] ModelExporter.Export: Exporting to .X: {xPath}");
@@ -174,7 +218,7 @@ namespace ChocolateBox
             StringBuilder mtlContent = new StringBuilder();
             
             objContent.AppendLine($"mtllib {Path.GetFileName(mtlPath)}");
-            objContent.AppendLine("# Exported from ChocolateBox");
+            objContent.AppendLine("# Exported from Silver Chest");
             
             string content = File.ReadAllText(xPath);
             int vertexOffset = 0;

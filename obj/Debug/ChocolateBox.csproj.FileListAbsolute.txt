@@ -63,3 +63,6 @@ D:\Documents\Fable\ChocolateBox\ChocolateBox\obj\Debug\ChocolateBox.Forms.FormSe
 D:\Documents\Fable\ChocolateBox\ChocolateBox\obj\Debug\ChocolateBox.Forms.FormSelectEntry.resources
 D:\Documents\Fable\ChocolateBox\ChocolateBox\obj\Debug\ChocolateBox.Forms.FormTextureBIG.resources
 D:\Documents\Fable\ChocolateBox\ChocolateBox\obj\Debug\ChocolateBox.Forms.FormTreeFileController.resources
+D:\Documents\Fable\ChocolateBox\ChocolateBox\bin\Debug\data\tips\bulkexport.txt
+D:\Documents\Fable\ChocolateBox\ChocolateBox\bin\Debug\data\tips\bulktextures.txt
+D:\Documents\Fable\ChocolateBox\ChocolateBox\bin\Debug\data\tips\exportmesh.txt

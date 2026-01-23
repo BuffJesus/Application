@@ -502,7 +502,7 @@ label_9:
     Device* mod1PeavDevice23Ea = \u003CModule\u003E.\u003Fm_pDevice\u0040Manager\u0040Gfx\u0040FableMod\u0040\u00401PEAVDevice\u004023\u0040EA;
     \u003CModule\u003E.FableMod\u002EGfx\u002EDevice\u002ELock(mod1PeavDevice23Ea);
     \u003CModule\u003E.FableMod\u002EGfx\u002EDevice\u002EBeginScene(mod1PeavDevice23Ea);
-    \u003CModule\u003E.FableMod\u002EGfx\u002EDevice\u002EClearBuffers(mod1PeavDevice23Ea, 4294902015U);
+    \u003CModule\u003E.FableMod\u002EGfx\u002EDevice\u002EClearBuffers(mod1PeavDevice23Ea, 4286611584U); // 0xFF808080 - medium gray instead of magenta
     if (FrameIndex >= (int) *(ushort*) ((IntPtr) this.m_SubHeader + 10L) || FrameIndex < 0)
       FrameIndex = 0;
     long num1 = (long) FrameIndex * 8L;

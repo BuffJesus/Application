@@ -10,6 +10,7 @@ using FableMod.ContentManagement;
 using System;
 using System.ComponentModel;
 using System.Drawing;
+using System.IO;
 using System.Windows.Forms;
 
 #nullable disable
@@ -38,7 +39,16 @@ public class FormBIN : FormTreeFileController
   {
     this.InitializeComponent();
     ThemeManager.ApplyTheme(this);
-    this.treeView.ImageList.Images.Add(Image.FromFile(Settings.DataDirectory + "icons\\" + "definitiontype.bmp"));
+    try
+    {
+      string iconPath = Settings.DataDirectory + "icons\\" + "definitiontype.bmp";
+      if (File.Exists(iconPath))
+        this.treeView.ImageList.Images.Add(Image.FromFile(iconPath));
+    }
+    catch
+    {
+      // Icon file not found or couldn't be loaded, continue without it
+    }
     this.dumpToFolderToolStripMenuItem.Visible = Settings.GetBool("BIN", "Dump", false);
   }
 
