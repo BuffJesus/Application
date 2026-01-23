@@ -227,5 +227,12 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="BanditKing.X" />
+    <Content Include="fable_x_bulk_importer.py" />
+    <Content Include="MESH_CASTLE_ENTRANCE_HALL.X" />
+    <Content Include="MESH_CREATURE_NEW_CHICKEN_01.X" />
+    <Content Include="MESH_YOUNGHERO_02.X" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
