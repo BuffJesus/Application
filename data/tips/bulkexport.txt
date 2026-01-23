@@ -1,0 +1,5 @@
+<title>Bulk Export</title>
+
+In any BIG file tree, check the entries you want to export, then right-click and choose "Bulk Export Selected...".
+
+You can also use the Export Selected button for the same workflow.

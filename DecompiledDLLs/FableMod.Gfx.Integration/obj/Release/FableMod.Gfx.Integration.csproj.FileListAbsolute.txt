@@ -1,0 +1,4 @@
+D:\Documents\Fable\ChocolateBox\ChocolateBox\DecompiledDLLs\FableMod.Gfx.Integration\obj\Release\FableMod.Gfx.Integration.csproj.AssemblyReference.cache
+D:\Documents\Fable\ChocolateBox\ChocolateBox\DecompiledDLLs\FableMod.Gfx.Integration\obj\Release\FableModGfxIntegration.GfxView.resources
+D:\Documents\Fable\ChocolateBox\ChocolateBox\DecompiledDLLs\FableMod.Gfx.Integration\obj\Release\FableMod.Gfx.Integration.csproj.GenerateResource.cache
+D:\Documents\Fable\ChocolateBox\ChocolateBox\DecompiledDLLs\FableMod.Gfx.Integration\obj\Release\FableMod.Gfx.Integration.csproj.CoreCompileInputs.cache

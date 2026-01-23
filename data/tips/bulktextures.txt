@@ -1,0 +1,3 @@
+<title>Bulk Export Textures</title>
+
+You can bulk export textures from textures.big the same way as other BIG files: check entries, then use "Bulk Export Selected...".

@@ -1,0 +1,5 @@
+<title>Exporting Meshes</title>
+
+In Graphics BIG archives, right-click a mesh entry and choose "Export Mesh as..." to save it as .x or .obj.
+
+Only mesh assets can be exported this way.
